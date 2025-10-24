@@ -42,8 +42,7 @@ export default function AgreementsPage() {
   };
   
   const handleCreateAgreement = () => {
-    // Will implement in next phase
-    alert('Agreement creation will be implemented in the next phase!');
+    router.push('/game'); // Redirect to game page where they can create agreements
   };
   
   return (
@@ -132,8 +131,8 @@ export default function AgreementsPage() {
                       With {otherFounder?.companyName || 'Unknown Company'}
                     </div>
                     <div className="text-sm text-gray-500 dark:text-gray-400">
-                      You offer: {currentVersion?.equityFromCompanyA === currentFounder.id ? currentVersion?.equityFromCompanyA : currentVersion?.equityFromCompanyB}% • 
-                      You receive: {currentVersion?.equityFromCompanyA === currentFounder.id ? currentVersion?.equityFromCompanyB : currentVersion?.equityFromCompanyA}%
+                      You offer: {agreement.founderAId === currentFounder.id ? currentVersion?.equityFromCompanyA : currentVersion?.equityFromCompanyB}% • 
+                      You receive: {agreement.founderAId === currentFounder.id ? currentVersion?.equityFromCompanyB : currentVersion?.equityFromCompanyA}%
                     </div>
                   </div>
                   <div className="text-right">

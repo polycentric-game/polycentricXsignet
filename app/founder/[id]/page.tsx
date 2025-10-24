@@ -73,8 +73,7 @@ export default function FounderPage({ params }: FounderPageProps) {
   );
   
   const handleCreateAgreement = () => {
-    // Will implement in next phase
-    alert('Agreement creation will be implemented in the next phase!');
+    router.push(`/game?createWith=${founder.id}`);
   };
   
   return (

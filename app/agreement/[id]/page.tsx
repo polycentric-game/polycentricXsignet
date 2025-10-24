@@ -4,10 +4,14 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppStore } from '@/lib/store';
 import { agreementStorage } from '@/lib/storage';
+import { approveAgreement, canApproveAgreement, canReviseAgreement, completeAgreement } from '@/lib/agreements';
+import { exportAgreement } from '@/lib/export';
 import { Agreement } from '@/lib/types';
+import { AgreementForm } from '@/components/agreement/AgreementForm';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
+import { Modal } from '@/components/ui/Modal';
 
 interface AgreementPageProps {
   params: { id: string };
@@ -15,9 +19,11 @@ interface AgreementPageProps {
 
 export default function AgreementPage({ params }: AgreementPageProps) {
   const router = useRouter();
-  const { session, currentFounder, founders } = useAppStore();
+  const { session, currentFounder, founders, updateAgreement, refreshData } = useAppStore();
   const [agreement, setAgreement] = useState<Agreement | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showRevisionModal, setShowRevisionModal] = useState(false);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
   
   useEffect(() => {
     if (!session) {
@@ -29,6 +35,12 @@ export default function AgreementPage({ params }: AgreementPageProps) {
     setAgreement(foundAgreement);
     setLoading(false);
   }, [params.id, session, router]);
+  
+  // Refresh agreement data when store updates
+  useEffect(() => {
+    const foundAgreement = agreementStorage.findById(params.id);
+    setAgreement(foundAgreement);
+  }, [params.id, updateAgreement]);
   
   if (!session || !currentFounder) {
     return null; // Will redirect
@@ -82,6 +94,64 @@ export default function AgreementPage({ params }: AgreementPageProps) {
       </div>
     );
   }
+  
+  const handleApprove = async () => {
+    setActionLoading('approve');
+    try {
+      const result = approveAgreement(agreement.id, currentFounder.id);
+      if (result.success && result.agreement) {
+        updateAgreement(result.agreement);
+        refreshData(); // Refresh to update equity counts
+        setAgreement(result.agreement);
+      } else {
+        alert(result.error || 'Failed to approve agreement');
+      }
+    } catch (error) {
+      alert('An error occurred while approving the agreement');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+  
+  const handleComplete = async () => {
+    setActionLoading('complete');
+    try {
+      const result = completeAgreement(agreement.id, currentFounder.id);
+      if (result.success && result.agreement) {
+        updateAgreement(result.agreement);
+        setAgreement(result.agreement);
+      } else {
+        alert(result.error || 'Failed to complete agreement');
+      }
+    } catch (error) {
+      alert('An error occurred while completing the agreement');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+  
+  const handleExport = async () => {
+    setActionLoading('export');
+    try {
+      const result = exportAgreement(agreement);
+      if (!result.success) {
+        alert(result.error || 'Failed to export agreement');
+      }
+    } catch (error) {
+      alert('An error occurred while exporting the agreement');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+  
+  const handleRevisionSubmitted = (updatedAgreement: Agreement) => {
+    setShowRevisionModal(false);
+    updateAgreement(updatedAgreement);
+    setAgreement(updatedAgreement);
+  };
+  
+  const canApprove = canApproveAgreement(agreement, currentFounder.id);
+  const canRevise = canReviseAgreement(agreement, currentFounder.id);
   
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -232,26 +302,56 @@ export default function AgreementPage({ params }: AgreementPageProps) {
           </Button>
           
           {agreement.status === 'approved' && (
-            <Button onClick={() => alert('Export functionality will be implemented in the next phase!')}>
-              Export Agreement
-            </Button>
-          )}
-          
-          {(agreement.status === 'proposed' || agreement.status === 'revised') && (
             <>
-              <Button onClick={() => alert('Approval functionality will be implemented in the next phase!')}>
-                Approve Current Version
+              <Button 
+                onClick={handleExport}
+                disabled={actionLoading === 'export'}
+              >
+                {actionLoading === 'export' ? 'Exporting...' : 'Export Agreement'}
               </Button>
               <Button 
                 variant="secondary"
-                onClick={() => alert('Revision functionality will be implemented in the next phase!')}
+                onClick={handleComplete}
+                disabled={actionLoading === 'complete'}
               >
-                Propose Revision
+                {actionLoading === 'complete' ? 'Completing...' : 'Mark as Completed'}
               </Button>
             </>
           )}
+          
+          {canApprove && (
+            <Button 
+              onClick={handleApprove}
+              disabled={actionLoading === 'approve'}
+            >
+              {actionLoading === 'approve' ? 'Approving...' : 'Approve Current Version'}
+            </Button>
+          )}
+          
+          {canRevise && (
+            <Button 
+              variant="secondary"
+              onClick={() => setShowRevisionModal(true)}
+            >
+              Propose Revision
+            </Button>
+          )}
         </div>
       </Card>
+      
+      {/* Revision Modal */}
+      <Modal
+        isOpen={showRevisionModal}
+        onClose={() => setShowRevisionModal(false)}
+        title="Propose Revision"
+        size="lg"
+      >
+        <AgreementForm
+          agreement={agreement}
+          onSubmit={handleRevisionSubmitted}
+          onCancel={() => setShowRevisionModal(false)}
+        />
+      </Modal>
     </div>
   );
 }

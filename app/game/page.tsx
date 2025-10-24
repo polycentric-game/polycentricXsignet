@@ -1,19 +1,23 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAppStore } from '@/lib/store';
 import { AgreementStatus } from '@/lib/types';
 import { GameGraph } from '@/components/graph/GameGraph';
 import { GraphControls } from '@/components/graph/GraphControls';
+import { AgreementForm } from '@/components/agreement/AgreementForm';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { Modal } from '@/components/ui/Modal';
 import { Plus } from 'lucide-react';
 
 export default function GamePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { session, user, currentFounder, founders, agreements } = useAppStore();
   const [statusFilter, setStatusFilter] = useState<AgreementStatus | 'all'>('all');
+  const [showCreateModal, setShowCreateModal] = useState(false);
   
   useEffect(() => {
     if (!session || !user) {
@@ -25,7 +29,15 @@ export default function GamePage() {
       router.push('/create-founder');
       return;
     }
-  }, [session, user, currentFounder, router]);
+    
+    // Check if we should auto-open create modal
+    const createWith = searchParams.get('createWith');
+    if (createWith && founders.find(f => f.id === createWith)) {
+      setShowCreateModal(true);
+      // Clear the query parameter
+      router.replace('/game', { scroll: false });
+    }
+  }, [session, user, currentFounder, router, searchParams, founders]);
   
   if (!session || !user || !currentFounder) {
     return null; // Will redirect
@@ -37,8 +49,12 @@ export default function GamePage() {
     : agreements.filter(agreement => agreement.status === statusFilter);
   
   const handleCreateAgreement = () => {
-    // For now, we'll implement this in the next phase
-    alert('Agreement creation will be implemented in the next phase!');
+    setShowCreateModal(true);
+  };
+  
+  const handleAgreementCreated = (agreement: any) => {
+    setShowCreateModal(false);
+    router.push(`/agreement/${agreement.id}`);
   };
   
   return (
@@ -125,6 +141,19 @@ export default function GamePage() {
           </div>
         </div>
       </Card>
+      
+      {/* Create Agreement Modal */}
+      <Modal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        title="Create New Agreement"
+        size="lg"
+      >
+        <AgreementForm
+          onSubmit={handleAgreementCreated}
+          onCancel={() => setShowCreateModal(false)}
+        />
+      </Modal>
     </div>
   );
 }
