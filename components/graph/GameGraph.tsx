@@ -107,14 +107,23 @@ export function GameGraph({
     
     const { width, height } = dimensions;
     
-    // Create nodes and edges
-    const nodes: GraphNode[] = founders.map(founder => ({
-      id: founder.id,
-      founderName: founder.founderName,
-      companyName: founder.companyName,
-      x: Math.random() * width,
-      y: Math.random() * height,
-    }));
+    // Create nodes and edges with fixed positions
+    const nodes: GraphNode[] = founders.map((founder, index) => {
+      const angle = (index / founders.length) * 2 * Math.PI;
+      const radius = Math.min(width, height) * 0.3;
+      const centerX = width / 2;
+      const centerY = height / 2;
+      
+      return {
+        id: founder.id,
+        founderName: founder.founderName,
+        companyName: founder.companyName,
+        x: centerX + Math.cos(angle) * radius,
+        y: centerY + Math.sin(angle) * radius,
+        fx: centerX + Math.cos(angle) * radius,
+        fy: centerY + Math.sin(angle) * radius,
+      };
+    });
     
     const edges: GraphEdge[] = agreements.map(agreement => ({
       id: agreement.id,
@@ -123,12 +132,12 @@ export function GameGraph({
       status: agreement.status,
     }));
     
-    // Create force simulation
+    // Create force simulation with minimal forces to maintain interactivity
     const simulation = d3.forceSimulation(nodes)
       .force('link', d3.forceLink(edges).id((d: any) => d.id).distance(150))
-      .force('charge', d3.forceManyBody().strength(-300))
-      .force('center', d3.forceCenter(width / 2, height / 2))
-      .force('collision', d3.forceCollide().radius(40));
+      .alpha(0)
+      .alphaTarget(0)
+      .stop();
     
     simulationRef.current = simulation;
     
@@ -261,18 +270,21 @@ export function GameGraph({
       })
       .call(d3.drag<SVGCircleElement, GraphNode>()
         .on('start', (event, d) => {
-          if (!event.active) simulation.alphaTarget(0.3).restart();
           d.fx = d.x;
           d.fy = d.y;
         })
         .on('drag', (event, d) => {
           d.fx = event.x;
           d.fy = event.y;
+          // Update positions immediately without simulation
+          d3.select(event.sourceEvent.target).attr('cx', d.fx).attr('cy', d.fy);
+          // Update connected edges and labels
+          updatePositions();
         })
         .on('end', (event, d) => {
-          if (!event.active) simulation.alphaTarget(0);
-          d.fx = null;
-          d.fy = null;
+          // Keep the dragged position fixed
+          d.fx = event.x;
+          d.fy = event.y;
         })
       );
     
@@ -348,8 +360,8 @@ export function GameGraph({
       .style('pointer-events', 'none')
       .text(d => d.id);
     
-    // Update positions on simulation tick
-    simulation.on('tick', () => {
+    // Function to update positions immediately
+    const updatePositions = () => {
       link
         .attr('x1', (d: any) => d.source.x)
         .attr('y1', (d: any) => d.source.y)
@@ -375,7 +387,10 @@ export function GameGraph({
           const y = (d.source.y + d.target.y) / 2;
           return `translate(${x}, ${y})`;
         });
-    });
+    };
+    
+    // Set initial positions immediately
+    updatePositions();
     
     // Cleanup
     return () => {
