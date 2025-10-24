@@ -279,6 +279,35 @@ export function GameGraph({
         .on('drag', (event, d) => {
           d.fx = event.x;
           d.fy = event.y;
+          d.x = event.x;
+          d.y = event.y;
+          
+          // Update node position immediately
+          d3.select(event.sourceEvent.target).attr('cx', d.x).attr('cy', d.y);
+          
+          // Update labels immediately
+          label.filter((labelData: any) => labelData.id === d.id)
+            .attr('x', d.x)
+            .attr('y', d.y);
+          
+          companyLabel.filter((labelData: any) => labelData.id === d.id)
+            .attr('x', d.x)
+            .attr('y', d.y);
+          
+          // Update connected edges immediately
+          link
+            .attr('x1', (linkData: any) => linkData.source.x)
+            .attr('y1', (linkData: any) => linkData.source.y)
+            .attr('x2', (linkData: any) => linkData.target.x)
+            .attr('y2', (linkData: any) => linkData.target.y);
+          
+          // Update edge labels immediately
+          edgeLabels
+            .attr('transform', (edgeData: any) => {
+              const x = (edgeData.source.x + edgeData.target.x) / 2;
+              const y = (edgeData.source.y + edgeData.target.y) / 2;
+              return `translate(${x}, ${y})`;
+            });
         })
         .on('end', (event, d) => {
           if (!event.active) simulation.alphaTarget(0);
