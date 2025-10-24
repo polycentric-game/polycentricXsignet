@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAppStore } from '@/lib/store';
 import { AgreementStatus } from '@/lib/types';
@@ -18,6 +18,8 @@ export default function GamePage() {
   const { session, user, currentFounder, founders, agreements } = useAppStore();
   const [statusFilter, setStatusFilter] = useState<AgreementStatus | 'all'>('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [highlightedFounder, setHighlightedFounder] = useState<string | null>(null);
+  const graphRef = useRef<{ resetZoom: () => void; centerView: () => void } | null>(null);
   
   useEffect(() => {
     if (!session || !user) {
@@ -55,6 +57,26 @@ export default function GamePage() {
   const handleAgreementCreated = (agreement: any) => {
     setShowCreateModal(false);
     router.push(`/agreement/${agreement.id}`);
+  };
+
+  const handleZoomReset = () => {
+    if (graphRef.current) {
+      graphRef.current.resetZoom();
+    }
+  };
+
+  const handleCenterView = () => {
+    if (graphRef.current) {
+      graphRef.current.centerView();
+    }
+  };
+
+  const handleNodeClick = (founderId: string) => {
+    router.push(`/founder/${founderId}`);
+  };
+
+  const handleEdgeClick = (agreementId: string) => {
+    router.push(`/agreement/${agreementId}`);
   };
   
   return (
@@ -106,6 +128,10 @@ export default function GamePage() {
           <GraphControls
             statusFilter={statusFilter}
             onStatusFilterChange={setStatusFilter}
+            onZoomReset={handleZoomReset}
+            onCenterView={handleCenterView}
+            highlightedFounder={highlightedFounder}
+            onHighlightFounder={setHighlightedFounder}
           />
         </div>
         
@@ -116,6 +142,10 @@ export default function GamePage() {
               founders={founders}
               agreements={filteredAgreements}
               currentFounderId={currentFounder.id}
+              onNodeClick={handleNodeClick}
+              onEdgeClick={handleEdgeClick}
+              onZoomReset={handleZoomReset}
+              onCenterView={handleCenterView}
             />
           </Card>
         </div>

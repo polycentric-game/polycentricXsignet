@@ -4,12 +4,15 @@ import React from 'react';
 import { AgreementStatus } from '@/lib/types';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { ZoomIn, ZoomOut, Maximize2, RotateCcw } from 'lucide-react';
 
 interface GraphControlsProps {
   statusFilter: AgreementStatus | 'all';
   onStatusFilterChange: (status: AgreementStatus | 'all') => void;
   onZoomReset?: () => void;
   onCenterView?: () => void;
+  highlightedFounder?: string;
+  onHighlightFounder?: (founderId: string | null) => void;
 }
 
 const statusOptions: { value: AgreementStatus | 'all'; label: string; color: string }[] = [
@@ -24,7 +27,9 @@ export function GraphControls({
   statusFilter, 
   onStatusFilterChange, 
   onZoomReset, 
-  onCenterView 
+  onCenterView,
+  highlightedFounder,
+  onHighlightFounder
 }: GraphControlsProps) {
   return (
     <Card className="p-4">
@@ -53,17 +58,35 @@ export function GraphControls({
           <h3 className="font-semibold text-sm text-gray-900 dark:text-gray-100">
             View Controls
           </h3>
-          <div className="flex gap-2">
+          <div className="grid grid-cols-2 gap-2">
             {onZoomReset && (
-              <Button variant="secondary" size="sm" onClick={onZoomReset}>
-                Reset Zoom
+              <Button 
+                variant="secondary" 
+                size="sm" 
+                onClick={onZoomReset}
+                className="flex items-center space-x-1"
+              >
+                <RotateCcw className="h-3 w-3" />
+                <span>Reset</span>
               </Button>
             )}
             {onCenterView && (
-              <Button variant="secondary" size="sm" onClick={onCenterView}>
-                Center View
+              <Button 
+                variant="secondary" 
+                size="sm" 
+                onClick={onCenterView}
+                className="flex items-center space-x-1"
+              >
+                <Maximize2 className="h-3 w-3" />
+                <span>Center</span>
               </Button>
             )}
+          </div>
+          <div className="text-xs text-gray-500 dark:text-gray-400">
+            <div><strong>Mouse Controls:</strong></div>
+            <div>• Scroll: Zoom in/out</div>
+            <div>• Drag background: Pan view</div>
+            <div>• Drag nodes: Reposition</div>
           </div>
         </div>
         

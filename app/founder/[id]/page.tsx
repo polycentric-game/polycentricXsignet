@@ -9,6 +9,7 @@ import { Founder } from '@/lib/types';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
+import { FounderGraph } from '@/components/graph/FounderGraph';
 
 interface FounderPageProps {
   params: { id: string };
@@ -16,7 +17,7 @@ interface FounderPageProps {
 
 export default function FounderPage({ params }: FounderPageProps) {
   const router = useRouter();
-  const { session, currentFounder, agreements } = useAppStore();
+  const { session, currentFounder, agreements, founders } = useAppStore();
   const [founder, setFounder] = useState<Founder | null>(null);
   const [loading, setLoading] = useState(true);
   
@@ -240,6 +241,23 @@ export default function FounderPage({ params }: FounderPageProps) {
         </div>
       </Card>
       
+      {/* Network Graph */}
+      <Card>
+        <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100 mb-4">
+          Network Connections
+        </h3>
+        <div className="h-80">
+          <FounderGraph
+            founder={founder}
+            founders={founders}
+            agreements={agreements}
+          />
+        </div>
+        <div className="mt-4 text-sm text-gray-500 dark:text-gray-400">
+          Click on connected founders to view their profiles, or click on edges to view agreements.
+        </div>
+      </Card>
+
       {/* Agreements */}
       {founderAgreements.length > 0 && (
         <Card>

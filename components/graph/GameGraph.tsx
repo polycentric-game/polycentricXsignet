@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import * as d3 from 'd3';
 import { useRouter } from 'next/navigation';
 import { Founder, Agreement, GraphNode, GraphEdge } from '@/lib/types';
@@ -13,6 +13,8 @@ interface GameGraphProps {
   currentFounderId?: string;
   onNodeClick?: (founderId: string) => void;
   onEdgeClick?: (agreementId: string) => void;
+  onZoomReset?: () => void;
+  onCenterView?: () => void;
 }
 
 export function GameGraph({ 
@@ -20,9 +22,13 @@ export function GameGraph({
   agreements, 
   currentFounderId,
   onNodeClick,
-  onEdgeClick 
+  onEdgeClick,
+  onZoomReset,
+  onCenterView
 }: GameGraphProps) {
   const svgRef = useRef<SVGSVGElement>(null);
+  const simulationRef = useRef<d3.Simulation<GraphNode, undefined> | null>(null);
+  const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
   const router = useRouter();
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
   
@@ -44,6 +50,55 @@ export function GameGraph({
     return () => window.removeEventListener('resize', updateDimensions);
   }, []);
   
+  // Reset zoom function
+  const resetZoom = useCallback(() => {
+    if (svgRef.current && zoomRef.current) {
+      const svg = d3.select(svgRef.current);
+      svg.transition().duration(750).call(
+        zoomRef.current.transform,
+        d3.zoomIdentity
+      );
+    }
+  }, []);
+
+  // Center view function
+  const centerView = useCallback(() => {
+    if (svgRef.current && simulationRef.current && zoomRef.current) {
+      const svg = d3.select(svgRef.current);
+      const { width, height } = dimensions;
+      
+      // Calculate bounds of all nodes
+      const nodes = simulationRef.current.nodes();
+      if (nodes.length === 0) return;
+      
+      const xExtent = d3.extent(nodes, d => d.x!) as [number, number];
+      const yExtent = d3.extent(nodes, d => d.y!) as [number, number];
+      
+      const dx = xExtent[1] - xExtent[0];
+      const dy = yExtent[1] - yExtent[0];
+      const x = (xExtent[0] + xExtent[1]) / 2;
+      const y = (yExtent[0] + yExtent[1]) / 2;
+      
+      const scale = Math.min(width / dx, height / dy) * 0.8;
+      const translate = [width / 2 - scale * x, height / 2 - scale * y];
+      
+      svg.transition().duration(750).call(
+        zoomRef.current.transform,
+        d3.zoomIdentity.translate(translate[0], translate[1]).scale(scale)
+      );
+    }
+  }, [dimensions]);
+
+  // Expose functions to parent
+  useEffect(() => {
+    if (onZoomReset) {
+      onZoomReset = resetZoom;
+    }
+    if (onCenterView) {
+      onCenterView = centerView;
+    }
+  }, [resetZoom, centerView, onZoomReset, onCenterView]);
+
   useEffect(() => {
     if (!svgRef.current || founders.length === 0) return;
     
@@ -75,6 +130,8 @@ export function GameGraph({
       .force('center', d3.forceCenter(width / 2, height / 2))
       .force('collision', d3.forceCollide().radius(40));
     
+    simulationRef.current = simulation;
+    
     // Create zoom behavior
     const zoom = d3.zoom<SVGSVGElement, unknown>()
       .scaleExtent([0.1, 4])
@@ -82,6 +139,7 @@ export function GameGraph({
         g.attr('transform', event.transform);
       });
     
+    zoomRef.current = zoom;
     svg.call(zoom);
     
     // Create main group
@@ -103,6 +161,7 @@ export function GameGraph({
           default: return '#6B7280';
         }
       })
+      .attr('stroke-opacity', 0.8)
       .style('cursor', 'pointer')
       .on('click', (event, d) => {
         event.stopPropagation();
@@ -111,6 +170,28 @@ export function GameGraph({
         } else {
           router.push(`/agreement/${d.id}`);
         }
+      })
+      .on('mouseover', function(event, d) {
+        d3.select(this).attr('stroke-width', 4).attr('stroke-opacity', 1);
+        
+        // Show tooltip
+        const tooltip = d3.select('body').append('div')
+          .attr('class', 'graph-tooltip')
+          .style('position', 'absolute')
+          .style('background', 'rgba(0, 0, 0, 0.8)')
+          .style('color', 'white')
+          .style('padding', '8px')
+          .style('border-radius', '4px')
+          .style('font-size', '12px')
+          .style('pointer-events', 'none')
+          .style('z-index', '1000')
+          .html(`Agreement ${d.id}<br/>Status: ${d.status}`)
+          .style('left', (event.pageX + 10) + 'px')
+          .style('top', (event.pageY - 10) + 'px');
+      })
+      .on('mouseout', function(event, d) {
+        d3.select(this).attr('stroke-width', 2).attr('stroke-opacity', 0.8);
+        d3.selectAll('.graph-tooltip').remove();
       });
     
     // Create nodes
@@ -141,6 +222,42 @@ export function GameGraph({
         } else {
           router.push(`/founder/${d.id}`);
         }
+      })
+      .on('mouseover', function(event, d) {
+        const founder = founders.find(f => f.id === d.id);
+        if (!founder) return;
+        
+        d3.select(this).attr('r', 30);
+        
+        const remaining = getEquityRemaining(founder.id);
+        
+        // Show tooltip
+        const tooltip = d3.select('body').append('div')
+          .attr('class', 'graph-tooltip')
+          .style('position', 'absolute')
+          .style('background', 'rgba(0, 0, 0, 0.9)')
+          .style('color', 'white')
+          .style('padding', '12px')
+          .style('border-radius', '6px')
+          .style('font-size', '13px')
+          .style('pointer-events', 'none')
+          .style('z-index', '1000')
+          .style('max-width', '200px')
+          .html(`
+            <strong>${founder.founderName}</strong><br/>
+            <em>${founder.companyName}</em><br/>
+            ${founder.founderType}<br/>
+            <br/>
+            Equity Available: ${remaining}%<br/>
+            Total Equity: ${founder.totalEquityAvailable}%<br/>
+            Already Swapped: ${founder.equitySwapped}%
+          `)
+          .style('left', (event.pageX + 10) + 'px')
+          .style('top', (event.pageY - 10) + 'px');
+      })
+      .on('mouseout', function(event, d) {
+        d3.select(this).attr('r', 25);
+        d3.selectAll('.graph-tooltip').remove();
       })
       .call(d3.drag<SVGCircleElement, GraphNode>()
         .on('start', (event, d) => {
@@ -210,6 +327,8 @@ export function GameGraph({
     // Cleanup
     return () => {
       simulation.stop();
+      simulationRef.current = null;
+      d3.selectAll('.graph-tooltip').remove();
     };
   }, [founders, agreements, currentFounderId, dimensions, router, onNodeClick, onEdgeClick]);
   
