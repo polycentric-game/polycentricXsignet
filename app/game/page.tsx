@@ -18,7 +18,7 @@ export default function GamePage() {
   const { session, user, currentFounder, founders, agreements } = useAppStore();
   const [statusFilter, setStatusFilter] = useState<AgreementStatus | 'all'>('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [highlightedFounder, setHighlightedFounder] = useState<string | null>(null);
+  const [highlightedFounder, setHighlightedFounder] = useState<string | undefined>(undefined);
   const graphRef = useRef<GameGraphRef>(null);
   
   useEffect(() => {
@@ -131,7 +131,7 @@ export default function GamePage() {
             onZoomReset={handleZoomReset}
             onCenterView={handleCenterView}
             highlightedFounder={highlightedFounder}
-            onHighlightFounder={setHighlightedFounder}
+            onHighlightFounder={(founderId: string | null) => setHighlightedFounder(founderId || undefined)}
           />
         </div>
         
