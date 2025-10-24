@@ -79,22 +79,6 @@ export default function AgreementPage({ params }: AgreementPageProps) {
   
   const isInvolved = agreement.founderAId === currentFounder.id || agreement.founderBId === currentFounder.id;
   
-  if (!isInvolved) {
-    return (
-      <div className="text-center py-12">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">
-          Access Denied
-        </h1>
-        <p className="text-gray-600 dark:text-gray-300 mb-6">
-          You don't have permission to view this agreement.
-        </p>
-        <Button onClick={() => router.push('/agreements')}>
-          Back to Agreements
-        </Button>
-      </div>
-    );
-  }
-  
   const handleApprove = async () => {
     setActionLoading('approve');
     try {
@@ -301,7 +285,7 @@ export default function AgreementPage({ params }: AgreementPageProps) {
             Back to Agreements
           </Button>
           
-          {agreement.status === 'approved' && (
+          {agreement.status === 'approved' && isInvolved && (
             <>
               <Button 
                 onClick={handleExport}
@@ -319,7 +303,7 @@ export default function AgreementPage({ params }: AgreementPageProps) {
             </>
           )}
           
-          {canApprove && (
+          {canApprove && isInvolved && (
             <Button 
               onClick={handleApprove}
               disabled={actionLoading === 'approve'}
@@ -328,13 +312,19 @@ export default function AgreementPage({ params }: AgreementPageProps) {
             </Button>
           )}
           
-          {canRevise && (
+          {canRevise && isInvolved && (
             <Button 
               variant="secondary"
               onClick={() => setShowRevisionModal(true)}
             >
               Propose Revision
             </Button>
+          )}
+          
+          {!isInvolved && (
+            <div className="text-sm text-gray-500 dark:text-gray-400 italic">
+              You can view this agreement but cannot take actions as you are not involved in it.
+            </div>
           )}
         </div>
       </Card>
