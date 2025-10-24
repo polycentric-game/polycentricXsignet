@@ -303,16 +303,16 @@ export const GameGraph = forwardRef<GameGraphRef, GameGraphProps>(({
           d.y = event.y;
           
           // Update node position immediately
-          d3.select(event.sourceEvent.target).attr('cx', d.x).attr('cy', d.y);
+          d3.select(event.sourceEvent.target).attr('cx', d.x!).attr('cy', d.y!);
           
           // Update labels immediately
           label.filter((labelData: any) => labelData.id === d.id)
-            .attr('x', d.x)
-            .attr('y', d.y);
+            .attr('x', d.x!)
+            .attr('y', d.y!);
           
           companyLabel.filter((labelData: any) => labelData.id === d.id)
-            .attr('x', d.x)
-            .attr('y', d.y);
+            .attr('x', d.x!)
+            .attr('y', d.y!);
           
           // Update connected edges immediately
           link
