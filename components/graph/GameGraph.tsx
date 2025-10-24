@@ -135,9 +135,11 @@ export function GameGraph({
     // Create force simulation with minimal forces to maintain interactivity
     const simulation = d3.forceSimulation(nodes)
       .force('link', d3.forceLink(edges).id((d: any) => d.id).distance(150))
+      .force('charge', d3.forceManyBody().strength(-300))
+      .force('center', d3.forceCenter(width / 2, height / 2))
+      .force('collision', d3.forceCollide().radius(40))
       .alpha(0)
-      .alphaTarget(0)
-      .stop();
+      .alphaTarget(0);
     
     simulationRef.current = simulation;
     
@@ -270,21 +272,18 @@ export function GameGraph({
       })
       .call(d3.drag<SVGCircleElement, GraphNode>()
         .on('start', (event, d) => {
+          if (!event.active) simulation.alphaTarget(0.3).restart();
           d.fx = d.x;
           d.fy = d.y;
         })
         .on('drag', (event, d) => {
           d.fx = event.x;
           d.fy = event.y;
-          // Update positions immediately without simulation
-          d3.select(event.sourceEvent.target).attr('cx', d.fx).attr('cy', d.fy);
-          // Update connected edges and labels
-          updatePositions();
         })
         .on('end', (event, d) => {
-          // Keep the dragged position fixed
-          d.fx = event.x;
-          d.fy = event.y;
+          if (!event.active) simulation.alphaTarget(0);
+          d.fx = null;
+          d.fy = null;
         })
       );
     
@@ -360,8 +359,8 @@ export function GameGraph({
       .style('pointer-events', 'none')
       .text(d => d.id);
     
-    // Function to update positions immediately
-    const updatePositions = () => {
+    // Update positions on simulation tick (only when dragging)
+    simulation.on('tick', () => {
       link
         .attr('x1', (d: any) => d.source.x)
         .attr('y1', (d: any) => d.source.y)
@@ -387,10 +386,10 @@ export function GameGraph({
           const y = (d.source.y + d.target.y) / 2;
           return `translate(${x}, ${y})`;
         });
-    };
+    });
     
-    // Set initial positions immediately
-    updatePositions();
+    // Set initial positions immediately (trigger one tick manually)
+    simulation.tick();
     
     // Cleanup
     return () => {
