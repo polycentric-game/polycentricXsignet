@@ -9,9 +9,9 @@ import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
 
 const navItems = [
-  { href: '/game', label: 'Game' },
-  { href: '/agreements', label: 'Agreements' },
-  { href: '/profile', label: 'Profile' },
+  { href: '/game', label: 'Network', icon: 'network' },
+  { href: '/agreements', label: 'Agreements', icon: 'agreements' },
+  { href: '/profile', label: 'Profile', icon: 'profile' },
 ];
 
 export function MainNav() {

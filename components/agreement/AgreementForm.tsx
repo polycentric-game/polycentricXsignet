@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useAppStore } from '@/lib/store';
 import { createAgreement, proposeRevision } from '@/lib/agreements';
 import { validateAgreementEquity } from '@/lib/validation';
+import { toast } from '@/lib/toastStore';
 import { Agreement, Founder } from '@/lib/types';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -95,8 +96,10 @@ export function AgreementForm({ agreement, onSubmit, onCancel, isLoading = false
       if (result.success && result.agreement) {
         if (agreement) {
           updateAgreement(result.agreement);
+          toast.success('Revision Proposed!', 'Your revision has been proposed. The other founder can now review and approve it.');
         } else {
           addAgreement(result.agreement);
+          toast.success('Agreement Created!', 'Your equity swap proposal has been sent to the other founder.');
         }
         onSubmit(result.agreement);
       } else {
@@ -136,8 +139,17 @@ export function AgreementForm({ agreement, onSubmit, onCancel, isLoading = false
         </div>
         
         {errors.general && (
-          <div className="p-3 rounded-md bg-danger/10 border border-danger/20">
-            <p className="text-sm text-danger">{errors.general}</p>
+          <div className="p-4 rounded-md bg-danger/10 border border-danger/20">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-danger" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm text-danger font-medium">{errors.general}</p>
+              </div>
+            </div>
           </div>
         )}
         
@@ -234,13 +246,10 @@ export function AgreementForm({ agreement, onSubmit, onCancel, isLoading = false
             </Button>
             <Button
               type="submit"
-              disabled={submitting || isLoading}
+              loading={submitting || isLoading}
               className="sm:min-w-[140px]"
             >
-              {submitting || isLoading
-                ? (agreement ? 'Proposing...' : 'Creating...')
-                : (agreement ? 'Propose Revision' : 'Create Agreement')
-              }
+              {agreement ? 'Propose Revision' : 'Create Agreement'}
             </Button>
           </div>
         </form>

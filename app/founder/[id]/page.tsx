@@ -9,6 +9,7 @@ import { Founder } from '@/lib/types';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
+import { LoadingState } from '@/components/ui/LoadingSpinner';
 import { FounderGraph } from '@/components/graph/FounderGraph';
 
 interface FounderPageProps {
@@ -41,14 +42,7 @@ export default function FounderPage({ params }: FounderPageProps) {
   }
   
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-300">Loading founder profile...</p>
-        </div>
-      </div>
-    );
+    return <LoadingState message="Loading founder profile..." />;
   }
   
   if (!founder) {

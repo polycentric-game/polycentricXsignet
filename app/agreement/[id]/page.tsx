@@ -6,12 +6,14 @@ import { useAppStore } from '@/lib/store';
 import { agreementStorage } from '@/lib/storage';
 import { approveAgreement, canApproveAgreement, canReviseAgreement, completeAgreement } from '@/lib/agreements';
 import { exportAgreement } from '@/lib/export';
+import { toast } from '@/lib/toastStore';
 import { Agreement } from '@/lib/types';
 import { AgreementForm } from '@/components/agreement/AgreementForm';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
+import { LoadingState } from '@/components/ui/LoadingSpinner';
 
 interface AgreementPageProps {
   params: { id: string };
@@ -47,14 +49,7 @@ export default function AgreementPage({ params }: AgreementPageProps) {
   }
   
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-300">Loading agreement...</p>
-        </div>
-      </div>
-    );
+    return <LoadingState message="Loading agreement..." />;
   }
   
   if (!agreement) {
@@ -87,11 +82,17 @@ export default function AgreementPage({ params }: AgreementPageProps) {
         updateAgreement(result.agreement);
         refreshData(); // Refresh to update equity counts
         setAgreement(result.agreement);
+        
+        if (result.agreement.status === 'approved') {
+          toast.success('Agreement Approved!', 'Both founders have approved this agreement. Equity has been committed.');
+        } else {
+          toast.success('Approval Recorded', 'Your approval has been recorded. Waiting for the other founder to approve.');
+        }
       } else {
-        alert(result.error || 'Failed to approve agreement');
+        toast.error('Approval Failed', result.error || 'Failed to approve agreement');
       }
     } catch (error) {
-      alert('An error occurred while approving the agreement');
+      toast.error('Error', 'An unexpected error occurred while approving the agreement');
     } finally {
       setActionLoading(null);
     }
@@ -104,11 +105,12 @@ export default function AgreementPage({ params }: AgreementPageProps) {
       if (result.success && result.agreement) {
         updateAgreement(result.agreement);
         setAgreement(result.agreement);
+        toast.success('Agreement Completed!', 'This agreement has been marked as completed and is ready for implementation.');
       } else {
-        alert(result.error || 'Failed to complete agreement');
+        toast.error('Completion Failed', result.error || 'Failed to complete agreement');
       }
     } catch (error) {
-      alert('An error occurred while completing the agreement');
+      toast.error('Error', 'An unexpected error occurred while completing the agreement');
     } finally {
       setActionLoading(null);
     }
@@ -118,11 +120,13 @@ export default function AgreementPage({ params }: AgreementPageProps) {
     setActionLoading('export');
     try {
       const result = exportAgreement(agreement);
-      if (!result.success) {
-        alert(result.error || 'Failed to export agreement');
+      if (result.success) {
+        toast.success('Export Successful!', 'Agreement has been exported as JSON. Check your downloads folder.');
+      } else {
+        toast.error('Export Failed', result.error || 'Failed to export agreement');
       }
     } catch (error) {
-      alert('An error occurred while exporting the agreement');
+      toast.error('Error', 'An unexpected error occurred while exporting the agreement');
     } finally {
       setActionLoading(null);
     }
@@ -289,16 +293,16 @@ export default function AgreementPage({ params }: AgreementPageProps) {
             <>
               <Button 
                 onClick={handleExport}
-                disabled={actionLoading === 'export'}
+                loading={actionLoading === 'export'}
               >
-                {actionLoading === 'export' ? 'Exporting...' : 'Export Agreement'}
+                Export Agreement
               </Button>
               <Button 
                 variant="secondary"
                 onClick={handleComplete}
-                disabled={actionLoading === 'complete'}
+                loading={actionLoading === 'complete'}
               >
-                {actionLoading === 'complete' ? 'Completing...' : 'Mark as Completed'}
+                Mark as Completed
               </Button>
             </>
           )}
@@ -306,9 +310,9 @@ export default function AgreementPage({ params }: AgreementPageProps) {
           {canApprove && isInvolved && (
             <Button 
               onClick={handleApprove}
-              disabled={actionLoading === 'approve'}
+              loading={actionLoading === 'approve'}
             >
-              {actionLoading === 'approve' ? 'Approving...' : 'Approve Current Version'}
+              Approve Current Version
             </Button>
           )}
           
