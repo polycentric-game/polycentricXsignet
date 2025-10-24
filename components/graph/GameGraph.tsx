@@ -303,6 +303,51 @@ export function GameGraph({
       .style('pointer-events', 'none')
       .text(d => d.companyName);
     
+    // Create clickable agreement labels on edges
+    const edgeLabels = g.append('g')
+      .selectAll('g')
+      .data(edges)
+      .enter().append('g')
+      .attr('class', 'edge-label-group')
+      .style('cursor', 'pointer')
+      .on('click', (event, d) => {
+        event.stopPropagation();
+        if (onEdgeClick) {
+          onEdgeClick(d.id);
+        } else {
+          router.push(`/agreement/${d.id}`);
+        }
+      });
+    
+    // Add transparent background rectangles for better clickability
+    edgeLabels.append('rect')
+      .attr('width', 40)
+      .attr('height', 16)
+      .attr('x', -20)
+      .attr('y', -8)
+      .attr('fill', 'rgba(255, 255, 255, 0.8)')
+      .attr('stroke', d => {
+        switch (d.status) {
+          case 'proposed': return '#3B82F6';
+          case 'revised': return '#EAB308';
+          case 'approved': return '#39FF14';
+          case 'completed': return '#10B981';
+          default: return '#6B7280';
+        }
+      })
+      .attr('stroke-width', 1)
+      .attr('rx', 3);
+    
+    // Add agreement ID text
+    edgeLabels.append('text')
+      .attr('text-anchor', 'middle')
+      .attr('dy', 4)
+      .attr('fill', 'currentColor')
+      .attr('font-size', '10px')
+      .attr('font-weight', '500')
+      .style('pointer-events', 'none')
+      .text(d => d.id);
+    
     // Update positions on simulation tick
     simulation.on('tick', () => {
       link
@@ -322,6 +367,14 @@ export function GameGraph({
       companyLabel
         .attr('x', d => d.x!)
         .attr('y', d => d.y!);
+      
+      // Update edge label positions to center of each edge
+      edgeLabels
+        .attr('transform', (d: any) => {
+          const x = (d.source.x + d.target.x) / 2;
+          const y = (d.source.y + d.target.y) / 2;
+          return `translate(${x}, ${y})`;
+        });
     });
     
     // Cleanup
