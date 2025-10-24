@@ -306,26 +306,28 @@ export const GameGraph = forwardRef<GameGraphRef, GameGraphProps>(({
           d3.select(event.sourceEvent.target).attr('cx', d.x!).attr('cy', d.y!);
           
           // Update labels immediately
-          label.filter((labelData: any) => labelData.id === d.id)
+          label.filter((labelData: GraphNode) => labelData.id === d.id)
             .attr('x', d.x!)
             .attr('y', d.y!);
           
-          companyLabel.filter((labelData: any) => labelData.id === d.id)
+          companyLabel.filter((labelData: GraphNode) => labelData.id === d.id)
             .attr('x', d.x!)
             .attr('y', d.y!);
           
           // Update connected edges immediately
           link
-            .attr('x1', (linkData: any) => linkData.source.x)
-            .attr('y1', (linkData: any) => linkData.source.y)
-            .attr('x2', (linkData: any) => linkData.target.x)
-            .attr('y2', (linkData: any) => linkData.target.y);
+            .attr('x1', (linkData: GraphEdge) => (linkData.source as GraphNode).x!)
+            .attr('y1', (linkData: GraphEdge) => (linkData.source as GraphNode).y!)
+            .attr('x2', (linkData: GraphEdge) => (linkData.target as GraphNode).x!)
+            .attr('y2', (linkData: GraphEdge) => (linkData.target as GraphNode).y!);
           
           // Update edge labels immediately
           edgeLabels
-            .attr('transform', (edgeData: any) => {
-              const x = (edgeData.source.x + edgeData.target.x) / 2;
-              const y = (edgeData.source.y + edgeData.target.y) / 2;
+            .attr('transform', (edgeData: GraphEdge) => {
+              const source = edgeData.source as GraphNode;
+              const target = edgeData.target as GraphNode;
+              const x = (source.x! + target.x!) / 2;
+              const y = (source.y! + target.y!) / 2;
               return `translate(${x}, ${y})`;
             });
         })
@@ -412,10 +414,10 @@ export const GameGraph = forwardRef<GameGraphRef, GameGraphProps>(({
     // Update positions on simulation tick (only when dragging)
     simulation.on('tick', () => {
       link
-        .attr('x1', (d: any) => d.source.x)
-        .attr('y1', (d: any) => d.source.y)
-        .attr('x2', (d: any) => d.target.x)
-        .attr('y2', (d: any) => d.target.y);
+        .attr('x1', (d: GraphEdge) => (d.source as GraphNode).x!)
+        .attr('y1', (d: GraphEdge) => (d.source as GraphNode).y!)
+        .attr('x2', (d: GraphEdge) => (d.target as GraphNode).x!)
+        .attr('y2', (d: GraphEdge) => (d.target as GraphNode).y!);
       
       node
         .attr('cx', d => d.x!)
@@ -431,9 +433,11 @@ export const GameGraph = forwardRef<GameGraphRef, GameGraphProps>(({
       
       // Update edge label positions to center of each edge
       edgeLabels
-        .attr('transform', (d: any) => {
-          const x = (d.source.x + d.target.x) / 2;
-          const y = (d.source.y + d.target.y) / 2;
+        .attr('transform', (d: GraphEdge) => {
+          const source = d.source as GraphNode;
+          const target = d.target as GraphNode;
+          const x = (source.x! + target.x!) / 2;
+          const y = (source.y! + target.y!) / 2;
           return `translate(${x}, ${y})`;
         });
     });
