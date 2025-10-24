@@ -30,6 +30,7 @@ export const GameGraph = forwardRef<GameGraphRef, GameGraphProps>(({
   const svgRef = useRef<SVGSVGElement>(null);
   const simulationRef = useRef<d3.Simulation<GraphNode, undefined> | null>(null);
   const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
+  const initialPositionsRef = useRef<Map<string, { x: number; y: number }>>(new Map());
   const router = useRouter();
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
   
@@ -51,14 +52,31 @@ export const GameGraph = forwardRef<GameGraphRef, GameGraphProps>(({
     return () => window.removeEventListener('resize', updateDimensions);
   }, []);
   
-  // Reset zoom function
+  // Reset zoom and positions function
   const resetZoom = useCallback(() => {
-    if (svgRef.current && zoomRef.current) {
+    if (svgRef.current && zoomRef.current && simulationRef.current) {
       const svg = d3.select(svgRef.current);
+      
+      // Reset zoom
       svg.transition().duration(750).call(
         zoomRef.current.transform,
         d3.zoomIdentity
       );
+      
+      // Reset node positions to initial positions
+      const nodes = simulationRef.current.nodes();
+      nodes.forEach(node => {
+        const initialPos = initialPositionsRef.current.get(node.id);
+        if (initialPos) {
+          node.x = initialPos.x;
+          node.y = initialPos.y;
+          node.fx = initialPos.x;
+          node.fy = initialPos.y;
+        }
+      });
+      
+      // Update visual positions immediately
+      simulationRef.current.tick();
     }
   }, []);
 
@@ -110,15 +128,20 @@ export const GameGraph = forwardRef<GameGraphRef, GameGraphProps>(({
       const radius = Math.min(width, height) * 0.3;
       const centerX = width / 2;
       const centerY = height / 2;
+      const x = centerX + Math.cos(angle) * radius;
+      const y = centerY + Math.sin(angle) * radius;
+      
+      // Store initial positions
+      initialPositionsRef.current.set(founder.id, { x, y });
       
       return {
         id: founder.id,
         founderName: founder.founderName,
         companyName: founder.companyName,
-        x: centerX + Math.cos(angle) * radius,
-        y: centerY + Math.sin(angle) * radius,
-        fx: centerX + Math.cos(angle) * radius,
-        fy: centerY + Math.sin(angle) * radius,
+        x,
+        y,
+        fx: x,
+        fy: y,
       };
     });
     
