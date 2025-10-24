@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAppStore } from '@/lib/store';
 import { AgreementStatus } from '@/lib/types';
-import { GameGraph } from '@/components/graph/GameGraph';
+import { GameGraph, GameGraphRef } from '@/components/graph/GameGraph';
 import { GraphControls } from '@/components/graph/GraphControls';
 import { AgreementForm } from '@/components/agreement/AgreementForm';
 import { Button } from '@/components/ui/Button';
@@ -19,7 +19,7 @@ export default function GamePage() {
   const [statusFilter, setStatusFilter] = useState<AgreementStatus | 'all'>('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [highlightedFounder, setHighlightedFounder] = useState<string | null>(null);
-  const graphRef = useRef<{ resetZoom: () => void; centerView: () => void } | null>(null);
+  const graphRef = useRef<GameGraphRef>(null);
   
   useEffect(() => {
     if (!session || !user) {
@@ -139,13 +139,12 @@ export default function GamePage() {
         <div className="lg:col-span-3">
           <Card className="p-0 overflow-hidden">
             <GameGraph
+              ref={graphRef}
               founders={founders}
               agreements={filteredAgreements}
               currentFounderId={currentFounder.id}
               onNodeClick={handleNodeClick}
               onEdgeClick={handleEdgeClick}
-              onZoomReset={handleZoomReset}
-              onCenterView={handleCenterView}
             />
           </Card>
         </div>

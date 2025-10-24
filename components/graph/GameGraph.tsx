@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useEffect, useState, useCallback } from 'react';
+import React, { useRef, useEffect, useState, useCallback, useImperativeHandle, forwardRef } from 'react';
 import * as d3 from 'd3';
 import { useRouter } from 'next/navigation';
 import { Founder, Agreement, GraphNode, GraphEdge } from '@/lib/types';
@@ -13,19 +13,20 @@ interface GameGraphProps {
   currentFounderId?: string;
   onNodeClick?: (founderId: string) => void;
   onEdgeClick?: (agreementId: string) => void;
-  onZoomReset?: () => void;
-  onCenterView?: () => void;
 }
 
-export function GameGraph({ 
+export interface GameGraphRef {
+  resetZoom: () => void;
+  centerView: () => void;
+}
+
+export const GameGraph = forwardRef<GameGraphRef, GameGraphProps>(({ 
   founders, 
   agreements, 
   currentFounderId,
   onNodeClick,
-  onEdgeClick,
-  onZoomReset,
-  onCenterView
-}: GameGraphProps) {
+  onEdgeClick
+}, ref) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const simulationRef = useRef<d3.Simulation<GraphNode, undefined> | null>(null);
   const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
@@ -89,15 +90,11 @@ export function GameGraph({
     }
   }, [dimensions]);
 
-  // Expose functions to parent
-  useEffect(() => {
-    if (onZoomReset) {
-      onZoomReset = resetZoom;
-    }
-    if (onCenterView) {
-      onCenterView = centerView;
-    }
-  }, [resetZoom, centerView, onZoomReset, onCenterView]);
+  // Expose functions to parent via ref
+  useImperativeHandle(ref, () => ({
+    resetZoom,
+    centerView
+  }), [resetZoom, centerView]);
 
   useEffect(() => {
     if (!svgRef.current || founders.length === 0) return;
@@ -454,4 +451,6 @@ export function GameGraph({
       />
     </div>
   );
-}
+});
+
+GameGraph.displayName = 'GameGraph';
