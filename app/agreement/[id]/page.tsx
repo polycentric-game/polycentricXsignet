@@ -84,7 +84,7 @@ export default function AgreementPage({ params }: AgreementPageProps) {
         setAgreement(result.agreement);
         
         if (result.agreement.status === 'approved') {
-          toast.success('Agreement Approved!', 'Both founders have approved this agreement. Equity has been committed.');
+          toast.success('Agreement Approved!', 'Both founders have approved this agreement. It can now be marked as completed.');
         } else {
           toast.success('Approval Recorded', 'Your approval has been recorded. Waiting for the other founder to approve.');
         }
@@ -289,22 +289,23 @@ export default function AgreementPage({ params }: AgreementPageProps) {
             Back to Agreements
           </Button>
           
+          {agreement.status === 'completed' && isInvolved && (
+            <Button 
+              onClick={handleExport}
+              loading={actionLoading === 'export'}
+            >
+              Export for signet
+            </Button>
+          )}
+          
           {agreement.status === 'approved' && isInvolved && (
-            <>
-              <Button 
-                onClick={handleExport}
-                loading={actionLoading === 'export'}
-              >
-                Export Agreement
-              </Button>
-              <Button 
-                variant="secondary"
-                onClick={handleComplete}
-                loading={actionLoading === 'complete'}
-              >
-                Mark as Completed
-              </Button>
-            </>
+            <Button 
+              variant="secondary"
+              onClick={handleComplete}
+              loading={actionLoading === 'complete'}
+            >
+              Mark as Completed
+            </Button>
           )}
           
           {canApprove && isInvolved && (
