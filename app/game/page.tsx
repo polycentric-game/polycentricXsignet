@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAppStore } from '@/lib/store';
 import { AgreementStatus } from '@/lib/types';
@@ -12,7 +12,7 @@ import { Card } from '@/components/ui/Card';
 import { Modal } from '@/components/ui/Modal';
 import { Plus } from 'lucide-react';
 
-export default function GamePage() {
+function GamePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { session, user, currentFounder, founders, agreements } = useAppStore();
@@ -184,5 +184,13 @@ export default function GamePage() {
         />
       </Modal>
     </div>
+  );
+}
+
+export default function GamePage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <GamePageContent />
+    </Suspense>
   );
 }
