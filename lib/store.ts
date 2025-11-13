@@ -23,6 +23,7 @@ interface AppState {
   // Actions
   initializeApp: () => void;
   setSession: (session: AuthSession | null, user: User | null) => void;
+  clearSession: () => void;
   setCurrentFounder: (founder: Founder | null) => void;
   setTheme: (theme: Theme) => void;
   refreshData: () => void;
@@ -90,6 +91,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
     
     set({ session, user, currentFounder });
+  },
+  
+  // Clear authentication session
+  clearSession: () => {
+    set({ session: null, user: null, currentFounder: null });
   },
   
   // Set current founder
