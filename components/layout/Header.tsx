@@ -1,12 +1,12 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAccount, useDisconnect } from 'wagmi';
+import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAppStore } from '@/lib/store';
-import { signOut } from '@/lib/auth';
-import { Button } from '@/components/ui/Button';
+import { signInWithWallet, signOut } from '@/lib/auth';
 import { ThemeToggle } from './ThemeToggle';
 import { MainNav } from './MainNav';
 
@@ -14,9 +14,43 @@ export function Header() {
   const router = useRouter();
   const { address, isConnected } = useAccount();
   const { disconnect } = useDisconnect();
-  const { session, clearSession } = useAppStore();
+  const { session, setSession, clearSession, currentFounder } = useAppStore();
 
-  const handleSignOut = async () => {
+  // Handle wallet connection/disconnection
+  useEffect(() => {
+    const handleWalletConnection = async () => {
+      if (isConnected && address && !session) {
+        try {
+          const result = await signInWithWallet(address);
+          
+          if (result.success && result.user && result.session) {
+            await setSession(result.session, result.user);
+            
+            // Redirect based on founder status
+            setTimeout(() => {
+              const { currentFounder } = useAppStore.getState();
+              if (currentFounder) {
+                router.push('/game');
+              } else {
+                router.push('/create-founder');
+              }
+            }, 200);
+          }
+        } catch (error) {
+          console.error('Failed to authenticate with wallet:', error);
+        }
+      } else if (!isConnected && session) {
+        // Wallet disconnected, clear session
+        await signOut();
+        clearSession();
+        router.push('/');
+      }
+    };
+    
+    handleWalletConnection();
+  }, [isConnected, address, session, setSession, clearSession, router]);
+
+  const handleDisconnect = async () => {
     // Clear app session first
     await signOut();
     clearSession();
@@ -41,12 +75,8 @@ export function Header() {
       });
     }
     
-    // Redirect to sign in
-    router.push('/sign-in');
-  };
-
-  const formatAddress = (addr: string) => {
-    return addr.slice(0, 6);
+    // Redirect to home
+    router.push('/');
   };
 
   return (
@@ -64,16 +94,17 @@ export function Header() {
         
         <div className="flex items-center space-x-4">
           <MainNav />
-          {session && address && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleSignOut}
-              className="text-sm"
-            >
-              Sign Out ({formatAddress(address)})
-            </Button>
-          )}
+          <div className="flex items-center space-x-2">
+            <ConnectButton />
+            {session && (
+              <button
+                onClick={handleDisconnect}
+                className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
+              >
+                Sign Out
+              </button>
+            )}
+          </div>
           <ThemeToggle />
         </div>
       </div>

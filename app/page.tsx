@@ -7,12 +7,16 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 
 export default function HomePage() {
-  const { session } = useAppStore();
+  const { session, currentFounder } = useAppStore();
   
   if (session) {
     // Redirect authenticated users
     if (typeof window !== 'undefined') {
-      window.location.href = '/game';
+      if (currentFounder) {
+        window.location.href = '/game';
+      } else {
+        window.location.href = '/create-founder';
+      }
     }
     return null;
   }
@@ -28,17 +32,10 @@ export default function HomePage() {
         <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
           The equity swap negotiation game where founders create agreements to exchange equity between their companies.
         </p>
-        <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <Link href="/sign-in">
-            <Button size="lg" className="w-full sm:w-auto">
-              Sign In
-            </Button>
-          </Link>
-          <Link href="/sign-in">
-            <Button variant="secondary" size="lg" className="w-full sm:w-auto">
-              Join Game
-            </Button>
-          </Link>
+        <div className="flex justify-center space-x-4">
+          <p className="text-gray-600 dark:text-gray-300">
+            Connect your wallet in the header to get started
+          </p>
         </div>
       </div>
       
@@ -99,10 +96,10 @@ export default function HomePage() {
             </div>
             <div>
               <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100">
-                Sign Up & Create Profile
+                Connect Wallet & Create Profile
               </h3>
               <p className="text-gray-600 dark:text-gray-300">
-                Join with email/password or Ethereum wallet, then create your founder profile with company details.
+                Connect your Ethereum wallet, then create your founder profile with company details.
               </p>
             </div>
           </div>
