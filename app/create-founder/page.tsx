@@ -40,11 +40,7 @@ export default function CreateFounderPage() {
         updatedAt: new Date().toISOString(),
       };
       
-      // Save founder
-      addFounder(founder);
-      
-      // Set as current founder
-      setCurrentFounder(founder.id);
+      await addFounder(founder);
       setStoreFounder(founder);
       
       // Redirect to game

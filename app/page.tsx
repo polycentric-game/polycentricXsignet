@@ -23,11 +23,20 @@ export default function HomePage() {
         </p>
         <div className="flex justify-center space-x-4">
           {session ? (
-            <Link href={currentFounder ? "/game" : "/create-founder"}>
-              <Button size="lg">
-                {currentFounder ? "Join Game" : "Create Profile"}
-              </Button>
-            </Link>
+            <div className="flex space-x-4">
+              {!currentFounder && (
+                <Link href="/create-founder">
+                  <Button size="lg" variant="secondary">
+                    Create Profile
+                  </Button>
+                </Link>
+              )}
+              <Link href="/game">
+                <Button size="lg">
+                  Join Game
+                </Button>
+              </Link>
+            </div>
           ) : (
             <p className="text-gray-600 dark:text-gray-300">
               Connect your wallet in the header to get started
