@@ -1,37 +1,36 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { signInWithEthereum } from '@/lib/auth';
+import { useAccount, useConnect } from 'wagmi';
+import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { signInWithWallet } from '@/lib/auth';
 import { useAppStore } from '@/lib/store';
-import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 
-export function EthereumSignIn() {
+export function WalletSignIn() {
   const router = useRouter();
   const { setSession } = useAppStore();
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
+  const { address, isConnected } = useAccount();
   
-  const handleEthereumSignIn = async () => {
-    setIsLoading(true);
-    setError('');
-    
-    try {
-      const result = await signInWithEthereum();
-      
-      if (result.success && result.user && result.session) {
-        setSession(result.session, result.user);
-        router.push('/create-founder');
-      } else {
-        setError(result.error || 'Ethereum authentication failed');
+  useEffect(() => {
+    const handleWalletConnection = async () => {
+      if (isConnected && address) {
+        try {
+          const result = await signInWithWallet(address);
+          
+          if (result.success && result.user && result.session) {
+            setSession(result.session, result.user);
+            router.push('/create-founder');
+          }
+        } catch (error) {
+          console.error('Failed to authenticate with wallet:', error);
+        }
       }
-    } catch (error) {
-      setError('Failed to connect to Ethereum wallet');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    };
+    
+    handleWalletConnection();
+  }, [isConnected, address, setSession, router]);
   
   return (
     <Card className="w-full max-w-md">
@@ -45,25 +44,13 @@ export function EthereumSignIn() {
           </p>
         </div>
         
-        {error && (
-          <div className="p-3 rounded-md bg-danger/10 border border-danger/20">
-            <p className="text-sm text-danger">{error}</p>
-          </div>
-        )}
-        
-        <div className="space-y-4">
-          <Button
-            onClick={handleEthereumSignIn}
-            disabled={isLoading}
-            className="w-full"
-          >
-            {isLoading ? 'Connecting...' : 'Connect Ethereum Wallet'}
-          </Button>
-          
-          <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
-            This is a demo. A mock Ethereum address will be generated for you.
-          </p>
+        <div className="flex justify-center">
+          <ConnectButton />
         </div>
+        
+        <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
+          Connect your wallet to join the equity swap network
+        </p>
       </div>
     </Card>
   );
