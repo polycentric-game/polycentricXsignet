@@ -90,19 +90,24 @@ export const useAppStore = create<AppState>((set, get) => ({
   
   // Set authentication session
   setSession: async (session, user) => {
-    let currentFounder: Founder | null = null;
-    if (session?.founderId) {
-      currentFounder = await founderStorage.findById(session.founderId);
-    } else if (user) {
-      currentFounder = await founderStorage.findByUserId(user.id);
-      if (currentFounder && session) {
-        // Update session with founder ID
-        session.founderId = currentFounder.id;
-        await sessionStorage.save(session);
+    try {
+      let currentFounder: Founder | null = null;
+      if (session?.founderId) {
+        currentFounder = await founderStorage.findById(session.founderId);
+      } else if (user) {
+        currentFounder = await founderStorage.findByUserId(user.id);
+        if (currentFounder && session) {
+          // Update session with founder ID
+          session.founderId = currentFounder.id;
+          await sessionStorage.save(session);
+        }
       }
+      
+      set({ session, user, currentFounder });
+    } catch (error) {
+      console.error('Failed to set session:', error);
+      set({ session, user, currentFounder: null });
     }
-    
-    set({ session, user, currentFounder });
   },
   
   // Clear authentication session

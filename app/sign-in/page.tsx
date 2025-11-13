@@ -7,14 +7,32 @@ import { WalletSignIn } from '@/components/auth/EthereumSignIn';
 
 export default function SignInPage() {
   const router = useRouter();
-  const { session } = useAppStore();
+  const { session, currentFounder, isLoading } = useAppStore();
   
   useEffect(() => {
-    if (session) {
-      router.push('/game');
+    // Only redirect if we have a session and we're not loading
+    if (session && !isLoading) {
+      if (currentFounder) {
+        router.push('/game');
+      } else {
+        router.push('/create-founder');
+      }
     }
-  }, [session, router]);
+  }, [session, currentFounder, isLoading, router]);
   
+  // Show loading state while initializing
+  if (isLoading) {
+    return (
+      <div className="max-w-md mx-auto space-y-8">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p className="text-gray-600 dark:text-gray-300 mt-2">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  // Don't show sign-in form if already authenticated
   if (session) {
     return null; // Will redirect
   }

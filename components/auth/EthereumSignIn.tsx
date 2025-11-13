@@ -23,15 +23,15 @@ export function WalletSignIn() {
           if (result.success && result.user && result.session) {
             await setSession(result.session, result.user);
             
-            // Small delay to ensure state is updated
-            setTimeout(() => {
+            // Wait for state to update, then check for founder
+            setTimeout(async () => {
               const { currentFounder } = useAppStore.getState();
               if (currentFounder) {
                 router.push('/game');
               } else {
                 router.push('/create-founder');
               }
-            }, 100);
+            }, 200);
           }
         } catch (error) {
           console.error('Failed to authenticate with wallet:', error);
