@@ -20,9 +20,19 @@ export function Header() {
     signOut();
     clearSession();
     await disconnect();
-    // Clear any persisted connection state
+    // Clear all RainbowKit and Wagmi persisted connection state
     localStorage.removeItem('wagmi.store');
     localStorage.removeItem('wagmi.cache');
+    localStorage.removeItem('wagmi.wallet');
+    localStorage.removeItem('wagmi.connected');
+    localStorage.removeItem('rainbowkit.recent');
+    localStorage.removeItem('rainbowkit.wallet');
+    // Clear all localStorage keys that start with 'wagmi' or 'rainbowkit'
+    Object.keys(localStorage).forEach(key => {
+      if (key.startsWith('wagmi') || key.startsWith('rainbowkit')) {
+        localStorage.removeItem(key);
+      }
+    });
     router.push('/sign-in');
   };
 

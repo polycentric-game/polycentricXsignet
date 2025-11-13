@@ -15,8 +15,7 @@ export function WalletSignIn() {
   
   useEffect(() => {
     const handleWalletConnection = async () => {
-      // Only auto-authenticate if we don't already have a session
-      // This prevents auto-reconnection after sign out
+      // Only authenticate when user explicitly connects and we don't have a session
       if (isConnected && address && !session) {
         try {
           const result = await signInWithWallet(address);
@@ -31,7 +30,9 @@ export function WalletSignIn() {
       }
     };
     
-    handleWalletConnection();
+    // Add a small delay to ensure this only runs after user interaction
+    const timeoutId = setTimeout(handleWalletConnection, 100);
+    return () => clearTimeout(timeoutId);
   }, [isConnected, address, setSession, router, session]);
   
   return (

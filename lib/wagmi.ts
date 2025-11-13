@@ -6,4 +6,5 @@ export const wagmiConfig = getDefaultConfig({
   projectId: 'YOUR_PROJECT_ID', // Get this from WalletConnect Cloud
   chains: [mainnet, polygon, optimism, arbitrum, base],
   ssr: true, // If your dApp uses server side rendering (SSR)
+  storage: null, // Disable automatic storage to prevent auto-reconnection
 });
