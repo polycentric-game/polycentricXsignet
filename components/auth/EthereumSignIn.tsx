@@ -10,12 +10,14 @@ import { Card } from '@/components/ui/Card';
 
 export function WalletSignIn() {
   const router = useRouter();
-  const { setSession } = useAppStore();
+  const { setSession, session } = useAppStore();
   const { address, isConnected } = useAccount();
   
   useEffect(() => {
     const handleWalletConnection = async () => {
-      if (isConnected && address) {
+      // Only auto-authenticate if we don't already have a session
+      // This prevents auto-reconnection after sign out
+      if (isConnected && address && !session) {
         try {
           const result = await signInWithWallet(address);
           
@@ -30,7 +32,7 @@ export function WalletSignIn() {
     };
     
     handleWalletConnection();
-  }, [isConnected, address, setSession, router]);
+  }, [isConnected, address, setSession, router, session]);
   
   return (
     <Card className="w-full max-w-md">

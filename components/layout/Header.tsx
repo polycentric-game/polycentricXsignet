@@ -16,10 +16,13 @@ export function Header() {
   const { disconnect } = useDisconnect();
   const { session, clearSession } = useAppStore();
 
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
     signOut();
     clearSession();
-    disconnect();
+    await disconnect();
+    // Clear any persisted connection state
+    localStorage.removeItem('wagmi.store');
+    localStorage.removeItem('wagmi.cache');
     router.push('/sign-in');
   };
 
