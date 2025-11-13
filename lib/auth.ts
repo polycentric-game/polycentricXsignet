@@ -53,11 +53,18 @@ export async function signInWithWallet(address: string): Promise<AuthResult> {
 
 // Get current session
 export function getCurrentSession(): AuthSession | null {
-  if (!sessionStorage.isValid()) {
+  const session = sessionStorage.get();
+  if (!session) return null;
+  
+  // Check expiry synchronously using the session data
+  const expiresAt = new Date(session.expiresAt);
+  if (expiresAt <= new Date()) {
+    // Don't await here to keep this function synchronous
     sessionStorage.clear();
     return null;
   }
-  return sessionStorage.get();
+  
+  return session;
 }
 
 // Get current user
@@ -84,10 +91,10 @@ export async function isAuthenticated(): Promise<boolean> {
 }
 
 // Update session with founder ID
-export function setCurrentFounder(founderId: string): void {
+export async function setCurrentFounder(founderId: string): Promise<void> {
   const session = getCurrentSession();
   if (session) {
     session.founderId = founderId;
-    sessionStorage.save(session);
+    await sessionStorage.save(session);
   }
 }
