@@ -2,7 +2,7 @@
 
 import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAccount, useConnect } from 'wagmi';
+import { useAccount } from 'wagmi';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { signInWithWallet } from '@/lib/auth';
 import { useAppStore } from '@/lib/store';
@@ -15,14 +15,20 @@ export function WalletSignIn() {
   
   useEffect(() => {
     const handleWalletConnection = async () => {
-      // Only authenticate when user explicitly connects and we don't have a session
+      // Only authenticate when wallet is connected and we don't have a session
       if (isConnected && address && !session) {
         try {
           const result = await signInWithWallet(address);
           
           if (result.success && result.user && result.session) {
-            setSession(result.session, result.user);
-            router.push('/create-founder');
+            await setSession(result.session, result.user);
+            // Check if user has a founder, if not redirect to create one
+            const { currentFounder } = useAppStore.getState();
+            if (currentFounder) {
+              router.push('/game');
+            } else {
+              router.push('/create-founder');
+            }
           }
         } catch (error) {
           console.error('Failed to authenticate with wallet:', error);
@@ -30,9 +36,7 @@ export function WalletSignIn() {
       }
     };
     
-    // Add a small delay to ensure this only runs after user interaction
-    const timeoutId = setTimeout(handleWalletConnection, 100);
-    return () => clearTimeout(timeoutId);
+    handleWalletConnection();
   }, [isConnected, address, setSession, router, session]);
   
   return (

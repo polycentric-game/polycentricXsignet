@@ -63,6 +63,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         currentFounder = await founderStorage.findByUserId(user.id);
         if (currentFounder && session) {
           session.founderId = currentFounder.id;
+          // Update session in storage
+          await sessionStorage.save(session);
         }
       }
       
@@ -93,6 +95,11 @@ export const useAppStore = create<AppState>((set, get) => ({
       currentFounder = await founderStorage.findById(session.founderId);
     } else if (user) {
       currentFounder = await founderStorage.findByUserId(user.id);
+      if (currentFounder && session) {
+        // Update session with founder ID
+        session.founderId = currentFounder.id;
+        await sessionStorage.save(session);
+      }
     }
     
     set({ session, user, currentFounder });

@@ -28,6 +28,7 @@ export default function RootLayout({
   useKeyboardShortcuts();
   
   useEffect(() => {
+    // Initialize app on mount
     initializeApp();
   }, [initializeApp]);
   
