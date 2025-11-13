@@ -9,17 +9,6 @@ import { Card } from '@/components/ui/Card';
 export default function HomePage() {
   const { session, currentFounder } = useAppStore();
   
-  if (session) {
-    // Redirect authenticated users
-    if (typeof window !== 'undefined') {
-      if (currentFounder) {
-        window.location.href = '/game';
-      } else {
-        window.location.href = '/create-founder';
-      }
-    }
-    return null;
-  }
   
   return (
     <div className="max-w-4xl mx-auto space-y-12">
@@ -33,9 +22,17 @@ export default function HomePage() {
           The equity swap negotiation game where founders create agreements to exchange equity between their companies.
         </p>
         <div className="flex justify-center space-x-4">
-          <p className="text-gray-600 dark:text-gray-300">
-            Connect your wallet in the header to get started
-          </p>
+          {session ? (
+            <Link href={currentFounder ? "/game" : "/create-founder"}>
+              <Button size="lg">
+                {currentFounder ? "Join Game" : "Create Profile"}
+              </Button>
+            </Link>
+          ) : (
+            <p className="text-gray-600 dark:text-gray-300">
+              Connect your wallet in the header to get started
+            </p>
+          )}
         </div>
       </div>
       
