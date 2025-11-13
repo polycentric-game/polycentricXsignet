@@ -64,7 +64,7 @@ export function Header() {
         
         <div className="flex items-center space-x-4">
           <MainNav />
-          {session && isConnected && address && (
+          {session && address && (
             <Button
               variant="ghost"
               size="sm"

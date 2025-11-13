@@ -22,13 +22,16 @@ export function WalletSignIn() {
           
           if (result.success && result.user && result.session) {
             await setSession(result.session, result.user);
-            // Check if user has a founder, if not redirect to create one
-            const { currentFounder } = useAppStore.getState();
-            if (currentFounder) {
-              router.push('/game');
-            } else {
-              router.push('/create-founder');
-            }
+            
+            // Small delay to ensure state is updated
+            setTimeout(() => {
+              const { currentFounder } = useAppStore.getState();
+              if (currentFounder) {
+                router.push('/game');
+              } else {
+                router.push('/create-founder');
+              }
+            }, 100);
           }
         } catch (error) {
           console.error('Failed to authenticate with wallet:', error);

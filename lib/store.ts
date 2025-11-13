@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { User, Founder, Agreement, AuthSession, Theme } from './types';
 import { getCurrentSession, getCurrentUser } from './auth';
-import { founderStorage, agreementStorage, themeStorage } from './storage';
+import { founderStorage, agreementStorage, sessionStorage, themeStorage } from './storage';
 import { initializeSampleData } from './sampleData';
 
 interface AppState {
