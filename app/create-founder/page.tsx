@@ -15,14 +15,8 @@ export default function CreateFounderPage() {
   
   useEffect(() => {
     if (!session || !user) {
-      router.push('/sign-in');
+      router.push('/');
       return;
-    }
-    
-    // Check if user already has a founder profile
-    const existingFounder = founderStorage.findByUserId(user.id);
-    if (existingFounder) {
-      router.push('/game');
     }
   }, [session, user, router]);
   
