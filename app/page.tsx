@@ -2,12 +2,17 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { useAccount } from 'wagmi';
 import { useAppStore } from '@/lib/store';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 
 export default function HomePage() {
   const { session, currentFounder } = useAppStore();
+  const { isConnected } = useAccount();
+  
+  // Show button if we have a session OR if wallet is connected (session might still be loading)
+  const isAuthenticated = session || isConnected;
   
   
   return (
@@ -22,9 +27,15 @@ export default function HomePage() {
           The equity swap negotiation game where founders create agreements to exchange equity between their companies.
         </p>
         <div className="flex justify-center space-x-4">
-          {session ? (
+          {isAuthenticated ? (
             <div className="flex space-x-4">
-              {!currentFounder && (
+              {currentFounder ? (
+                <Link href={`/founder/${currentFounder.id}`}>
+                  <Button size="lg" variant="secondary">
+                    View Profile
+                  </Button>
+                </Link>
+              ) : (
                 <Link href="/create-founder">
                   <Button size="lg" variant="secondary">
                     Create Profile

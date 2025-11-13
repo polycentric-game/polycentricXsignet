@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useAccount } from 'wagmi';
 import { useAppStore } from '@/lib/store';
 import { AgreementStatus } from '@/lib/types';
 import { GameGraph, GameGraphRef } from '@/components/graph/GameGraph';
@@ -15,19 +16,57 @@ import { Plus } from 'lucide-react';
 function GamePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { session, user, currentFounder, founders, agreements } = useAppStore();
+  const { isConnected, address } = useAccount();
+  const { session, user, currentFounder, founders, agreements, isLoading } = useAppStore();
   const [statusFilter, setStatusFilter] = useState<AgreementStatus | 'all'>('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [highlightedFounder, setHighlightedFounder] = useState<string | undefined>(undefined);
   const graphRef = useRef<GameGraphRef>(null);
   
   useEffect(() => {
-    if (!session || !user) {
-      router.push('/sign-in');
+    // Wait for app to finish initializing
+    if (isLoading) {
       return;
     }
     
-    if (!currentFounder) {
+    // If wallet is connected, we should have a session - wait a bit if needed
+    if (isConnected && address) {
+      if (!session || !user) {
+        // Wait for Header to create session
+        const timer = setTimeout(() => {
+          const { session: currentSession, user: currentUser, currentFounder: currentFounderState } = useAppStore.getState();
+          if (!currentSession || !currentUser) {
+            // Still no session after waiting, something went wrong - redirect to home
+            router.push('/');
+          } else if (!currentFounderState) {
+            // Session and user exist but no founder, redirect to create founder
+            router.push('/create-founder');
+          }
+        }, 1500); // Give Header time to create session
+        return () => clearTimeout(timer);
+      } else if (!currentFounder) {
+        // Have session and user but no founder - redirect to create founder
+        router.push('/create-founder');
+        return;
+      }
+      // All good - session, user, and founder exist
+      return;
+    }
+    
+    // If no wallet connected and no session, redirect to home
+    if (!isConnected && !session) {
+      router.push('/');
+      return;
+    }
+    
+    // If we have session but no user, something went wrong - redirect to home
+    if (session && !user) {
+      router.push('/');
+      return;
+    }
+    
+    // If we have session and user but no founder, redirect to create founder
+    if (session && user && !currentFounder) {
       router.push('/create-founder');
       return;
     }
@@ -39,10 +78,15 @@ function GamePageContent() {
       // Clear the query parameter
       router.replace('/game', { scroll: false });
     }
-  }, [session, user, currentFounder, router, searchParams, founders]);
+  }, [session, user, currentFounder, router, searchParams, founders, isConnected, address, isLoading]);
   
-  if (!session || !user || !currentFounder) {
-    return null; // Will redirect
+  // Show loading state while waiting for session or redirecting
+  if (isLoading || !session || !user || !currentFounder) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-gray-600 dark:text-gray-300">Loading...</div>
+      </div>
+    );
   }
   
   // Filter agreements by status

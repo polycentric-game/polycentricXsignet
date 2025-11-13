@@ -24,7 +24,7 @@ interface AppState {
   initializeApp: () => void;
   setSession: (session: AuthSession | null, user: User | null) => void;
   clearSession: () => void;
-  setCurrentFounder: (founder: Founder | null) => void;
+  setCurrentFounder: (founder: Founder | null) => Promise<void>;
   setTheme: (theme: Theme) => void;
   refreshData: () => void;
   addFounder: (founder: Founder) => void;
@@ -46,25 +46,50 @@ export const useAppStore = create<AppState>((set, get) => ({
   // Initialize app - load session, theme, and data
   initializeApp: async () => {
     try {
-      // Initialize sample data if needed
-      initializeSampleData();
-      
       const session = getCurrentSession();
       const user = session ? await getCurrentUser() : null;
       const theme = themeStorage.get();
-      const founders = await founderStorage.getAll();
-      const agreements = await agreementStorage.getAll();
+      
+      // Try to load data, but handle missing tables gracefully
+      let founders: Founder[] = [];
+      let agreements: Agreement[] = [];
+      
+      try {
+        founders = await founderStorage.getAll();
+        agreements = await agreementStorage.getAll();
+        
+        // Initialize sample data if needed
+        await initializeSampleData();
+      } catch (dbError: any) {
+        // Check if it's a table missing error
+        if (dbError?.code === 'PGRST205' || dbError?.message?.includes('Could not find the table')) {
+          console.warn('Database tables not found. Please run the migration:', dbError.message);
+          // Continue with empty arrays - app will still work, just no data
+        } else {
+          throw dbError; // Re-throw if it's a different error
+        }
+      }
       
       let currentFounder: Founder | null = null;
       if (session?.founderId) {
-        currentFounder = await founderStorage.findById(session.founderId);
+        try {
+          currentFounder = await founderStorage.findById(session.founderId);
+        } catch (error) {
+          // Table might not exist, that's okay
+          console.warn('Could not load founder:', error);
+        }
       } else if (user) {
-        // Auto-select founder if user has one
-        currentFounder = await founderStorage.findByUserId(user.id);
-        if (currentFounder && session) {
-          session.founderId = currentFounder.id;
-          // Update session in storage
-          await sessionStorage.save(session);
+        try {
+          // Auto-select founder if user has one
+          currentFounder = await founderStorage.findByUserId(user.id);
+          if (currentFounder && session) {
+            session.founderId = currentFounder.id;
+            // Update session in storage
+            await sessionStorage.save(session);
+          }
+        } catch (error) {
+          // Table might not exist, that's okay
+          console.warn('Could not load founder by user:', error);
         }
       }
       
@@ -116,10 +141,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   
   // Set current founder
-  setCurrentFounder: (founder) => {
+  setCurrentFounder: async (founder) => {
     const { session } = get();
     if (session && founder) {
       session.founderId = founder.id;
+      // Update session in storage
+      await sessionStorage.save(session);
     }
     set({ currentFounder: founder });
   },

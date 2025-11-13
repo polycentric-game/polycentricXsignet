@@ -4,7 +4,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import * as d3 from 'd3';
 import { useRouter } from 'next/navigation';
 import { Founder, Agreement, GraphNode, GraphEdge } from '@/lib/types';
-import { getEquityRemaining } from '@/lib/validation';
+import { getAgreementDisplayNumber } from '@/lib/utils';
 
 interface FounderGraphProps {
   founder: Founder;
@@ -154,7 +154,7 @@ export function FounderGraph({
           return '#39FF14'; // Highlight center founder
         }
         
-        const remaining = getEquityRemaining(nodeFounder.id);
+        const remaining = nodeFounder.totalEquityAvailable - nodeFounder.equitySwapped;
         const percentage = remaining / nodeFounder.totalEquityAvailable;
         
         if (percentage > 0.7) return '#10B981'; // Green
@@ -215,7 +215,7 @@ export function FounderGraph({
       .attr('stroke-width', 1)
       .attr('rx', 2);
     
-    // Add agreement ID text
+    // Add agreement ID text (display number)
     edgeLabels.append('text')
       .attr('text-anchor', 'middle')
       .attr('dy', 3)
@@ -223,7 +223,10 @@ export function FounderGraph({
       .attr('font-size', '9px')
       .attr('font-weight', '500')
       .style('pointer-events', 'none')
-      .text(d => d.id);
+      .text(d => {
+        const agreement = agreements.find(a => a.id === d.id);
+        return agreement ? getAgreementDisplayNumber(agreement, agreements).toString() : d.id;
+      });
     
     // Update positions on simulation tick
     simulation.on('tick', () => {

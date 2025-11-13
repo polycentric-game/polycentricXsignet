@@ -44,6 +44,7 @@ export interface AgreementVersion {
   proposedBy: string; // founderId
   proposedAt: string;
   approvedBy: string[]; // Array of founderIds who approved
+  signatures?: { [founderId: string]: string }; // Map of founderId to signature hash
 }
 
 // Agreement (bilateral)

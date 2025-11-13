@@ -5,7 +5,7 @@ import * as d3 from 'd3';
 import { useRouter } from 'next/navigation';
 import { Founder, Agreement, GraphNode, GraphEdge } from '@/lib/types';
 import { getStatusColor } from '@/lib/agreements';
-import { getEquityRemaining } from '@/lib/validation';
+import { getAgreementDisplayNumber } from '@/lib/utils';
 
 interface GameGraphProps {
   founders: Founder[];
@@ -236,7 +236,7 @@ export const GameGraph = forwardRef<GameGraphRef, GameGraphProps>(({
         const founder = founders.find(f => f.id === d.id);
         if (!founder) return '#6B7280';
         
-        const remaining = getEquityRemaining(founder.id);
+        const remaining = founder.totalEquityAvailable - founder.equitySwapped;
         const percentage = remaining / founder.totalEquityAvailable;
         
         if (percentage > 0.7) return '#10B981'; // Green
@@ -260,7 +260,7 @@ export const GameGraph = forwardRef<GameGraphRef, GameGraphProps>(({
         
         d3.select(this).attr('r', 30);
         
-        const remaining = getEquityRemaining(founder.id);
+        const remaining = founder.totalEquityAvailable - founder.equitySwapped;
         
         // Show tooltip
         const tooltip = d3.select('body').append('div')
@@ -401,7 +401,7 @@ export const GameGraph = forwardRef<GameGraphRef, GameGraphProps>(({
       .attr('stroke-width', 1)
       .attr('rx', 3);
     
-    // Add agreement ID text
+    // Add agreement ID text (display number)
     edgeLabels.append('text')
       .attr('text-anchor', 'middle')
       .attr('dy', 4)
@@ -409,7 +409,10 @@ export const GameGraph = forwardRef<GameGraphRef, GameGraphProps>(({
       .attr('font-size', '10px')
       .attr('font-weight', '500')
       .style('pointer-events', 'none')
-      .text(d => d.id);
+      .text(d => {
+        const agreement = agreements.find(a => a.id === d.id);
+        return agreement ? getAgreementDisplayNumber(agreement, agreements).toString() : d.id;
+      });
     
     // Update positions on simulation tick (only when dragging)
     simulation.on('tick', () => {

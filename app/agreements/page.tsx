@@ -4,6 +4,7 @@ import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppStore } from '@/lib/store';
 import { getStatusColor } from '@/lib/agreements';
+import { getAgreementDisplayNumber } from '@/lib/utils';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -15,7 +16,7 @@ export default function AgreementsPage() {
   
   useEffect(() => {
     if (!session) {
-      router.push('/sign-in');
+      router.push('/');
       return;
     }
     
@@ -121,7 +122,7 @@ export default function AgreementsPage() {
                   <div className="space-y-2">
                     <div className="flex items-center space-x-3">
                       <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100">
-                        Agreement {agreement.id}
+                        Agreement {getAgreementDisplayNumber(agreement, agreements)}
                       </h3>
                       <Badge variant={agreement.status === 'approved' ? 'success' : 'secondary'}>
                         {agreement.status}

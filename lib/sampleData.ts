@@ -1,32 +1,50 @@
-import { Founder, Agreement } from './types';
-import { founderStorage, agreementStorage, generateId, generateAgreementId } from './storage';
+import { Founder, Agreement, User } from './types';
+import { founderStorage, agreementStorage, userStorage, generateId, generateAgreementId } from './storage';
 import { EXAMPLE_FOUNDERS } from './constants';
 
 // Initialize sample data if none exists
-export function initializeSampleData(): void {
-  const existingFounders = founderStorage.getAll();
-  const existingAgreements = agreementStorage.getAll();
+export async function initializeSampleData(): Promise<void> {
+  const existingFounders = await founderStorage.getAll();
+  const existingAgreements = await agreementStorage.getAll();
   
   // Only initialize if no data exists
   if (existingFounders.length === 0 && existingAgreements.length === 0) {
-    // Create sample founders
-    const sampleFounders: Founder[] = EXAMPLE_FOUNDERS.map((example, index) => ({
-      ...example,
-      id: generateId('founder_'),
-      userId: generateId('user_'), // Mock user IDs
-      createdAt: new Date(Date.now() - (index * 24 * 60 * 60 * 1000)).toISOString(), // Stagger creation dates
-      updatedAt: new Date(Date.now() - (index * 24 * 60 * 60 * 1000)).toISOString(),
-    }));
+    // Create sample users first (required for foreign key constraint)
+    const sampleUsers: User[] = [];
+    for (let i = 0; i < EXAMPLE_FOUNDERS.length; i++) {
+      // Generate a valid Ethereum address (42 characters: 0x + 40 hex chars)
+      const addressBytes = Array.from({ length: 20 }, () => Math.floor(Math.random() * 256));
+      const ethereumAddress = '0x' + addressBytes.map(b => b.toString(16).padStart(2, '0')).join('');
+      
+      const user: User = {
+        id: generateId(),
+        ethereumAddress,
+        createdAt: new Date(Date.now() - (i * 24 * 60 * 60 * 1000)).toISOString(),
+      };
+      const savedUser = await userStorage.save(user);
+      sampleUsers.push(savedUser);
+    }
     
-    // Save sample founders
-    sampleFounders.forEach(founder => {
-      founderStorage.save(founder);
-    });
+    // Create sample founders with valid user IDs
+    const sampleFounders: Founder[] = [];
+    for (let index = 0; index < EXAMPLE_FOUNDERS.length; index++) {
+      const example = EXAMPLE_FOUNDERS[index];
+      const founder: Founder = {
+        ...example,
+        id: generateId(),
+        userId: sampleUsers[index].id, // Use the actual user ID from created user
+        createdAt: new Date(Date.now() - (index * 24 * 60 * 60 * 1000)).toISOString(), // Stagger creation dates
+        updatedAt: new Date(Date.now() - (index * 24 * 60 * 60 * 1000)).toISOString(),
+      };
+      const savedFounder = await founderStorage.save(founder);
+      sampleFounders.push(savedFounder);
+    }
     
     // Create a sample agreement between Alex and Maya
     if (sampleFounders.length >= 2) {
+      const agreementId = await generateAgreementId();
       const agreement: Agreement = {
-        id: generateAgreementId(),
+        id: agreementId,
         founderAId: sampleFounders[0].id, // Alex
         founderBId: sampleFounders[1].id, // Maya
         status: 'proposed',
@@ -46,7 +64,7 @@ export function initializeSampleData(): void {
         updatedAt: new Date(Date.now() - (2 * 24 * 60 * 60 * 1000)).toISOString(),
       };
       
-      agreementStorage.save(agreement);
+      await agreementStorage.save(agreement);
     }
     
     console.log('Sample data initialized with', sampleFounders.length, 'founders and 1 agreement');

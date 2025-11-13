@@ -9,9 +9,11 @@ class UserStorage {
       .upsert({
         id: user.id,
         email: user.email || null,
-        ethereum_address: user.ethereumAddress || null,
+        ethereum_address: user.ethereumAddress?.toLowerCase() || null, // Normalize to lowercase
         created_at: user.createdAt,
         updated_at: new Date().toISOString(),
+      }, {
+        onConflict: 'id'
       })
       .select()
       .single();
@@ -64,10 +66,18 @@ class UserStorage {
     const { data, error } = await supabase
       .from('users')
       .select('*')
-      .eq('ethereum_address', address)
-      .single();
+      .eq('ethereum_address', address.toLowerCase()) // Normalize to lowercase for comparison
+      .maybeSingle(); // Use maybeSingle instead of single to avoid errors when not found
     
-    if (error || !data) return null;
+    if (error) {
+      // If it's a "not found" type error, return null
+      if (error.code === 'PGRST116' || error.message?.includes('No rows')) {
+        return null;
+      }
+      throw error;
+    }
+    
+    if (!data) return null;
     
     return {
       id: data.id,
@@ -107,6 +117,7 @@ class FounderStorage {
         company_description: founder.companyDescription,
         stage: founder.stage,
         current_valuation_range: founder.currentValuationRange,
+        revenue_status: founder.revenueStatus,
         business_model: founder.businessModel,
         key_assets: founder.keyAssets,
         swap_motivation: founder.swapMotivation,
@@ -178,6 +189,7 @@ class FounderStorage {
       companyDescription: row.company_description,
       stage: row.stage,
       currentValuationRange: row.current_valuation_range,
+      revenueStatus: row.revenue_status || '', // Fallback to empty string if column doesn't exist
       businessModel: row.business_model,
       keyAssets: row.key_assets,
       swapMotivation: row.swap_motivation,
@@ -274,14 +286,33 @@ class AgreementStorage {
 
 class SessionStorage {
   async save(session: AuthSession): Promise<void> {
+    // Check if a session already exists for this user
+    const { data: existingSessions } = await supabase
+      .from('sessions')
+      .select('id, created_at')
+      .eq('user_id', session.userId)
+      .limit(1);
+    
+    const existingSession = existingSessions && existingSessions.length > 0 ? existingSessions[0] : null;
+    const sessionId = existingSession?.id || this.generateSessionId();
+    
+    // Prepare the data to upsert
+    const sessionData: any = {
+      id: sessionId,
+      user_id: session.userId,
+      founder_id: session.founderId || null,
+      expires_at: session.expiresAt,
+    };
+    
+    // Only set created_at if this is a new session
+    if (!existingSession) {
+      sessionData.created_at = new Date().toISOString();
+    }
+    
     const { error } = await supabase
       .from('sessions')
-      .upsert({
-        id: this.generateSessionId(),
-        user_id: session.userId,
-        founder_id: session.founderId || null,
-        expires_at: session.expiresAt,
-        created_at: new Date().toISOString(),
+      .upsert(sessionData, {
+        onConflict: 'id'
       });
     
     if (error) throw error;
@@ -333,7 +364,17 @@ class SessionStorage {
   }
   
   private generateSessionId(): string {
-    return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    // Generate a proper UUID v4 for sessions
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+      return crypto.randomUUID();
+    } else {
+      // Fallback UUID v4 generation
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0;
+        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+      });
+    }
   }
 }
 
@@ -357,21 +398,35 @@ class ThemeStorage {
   }
 }
 
-// Generate unique IDs
+// Generate unique UUIDs
 export function generateId(prefix: string = ''): string {
-  const timestamp = Date.now().toString(36);
-  const random = Math.random().toString(36).substr(2, 5);
-  return `${prefix}${timestamp}_${random}`;
+  // Generate a proper UUID v4
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    // Use browser's crypto.randomUUID() if available
+    return crypto.randomUUID();
+  } else {
+    // Fallback UUID v4 generation
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      const r = Math.random() * 16 | 0;
+      const v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
 }
 
-// Generate agreement ID (A1, A2, etc.)
+// Generate agreement ID (UUID)
 export async function generateAgreementId(): Promise<string> {
-  const agreements = await agreementStorage.getAll();
-  const maxId = agreements.reduce((max, agreement) => {
-    const num = parseInt(agreement.id.substring(1));
-    return num > max ? num : max;
-  }, 0);
-  return `A${maxId + 1}`;
+  // Generate a proper UUID v4 for agreements
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  } else {
+    // Fallback UUID v4 generation
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      const r = Math.random() * 16 | 0;
+      const v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
 }
 
 // Export storage instances

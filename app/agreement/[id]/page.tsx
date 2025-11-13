@@ -2,12 +2,14 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAccount, useSignMessage } from 'wagmi';
 import { useAppStore } from '@/lib/store';
 import { agreementStorage } from '@/lib/storage';
-import { approveAgreement, canApproveAgreement, canReviseAgreement, completeAgreement } from '@/lib/agreements';
+import { approveAgreement, canApproveAgreement, canReviseAgreement, completeAgreement, generateApprovalMessage } from '@/lib/agreements';
 import { exportAgreement } from '@/lib/export';
 import { toast } from '@/lib/toastStore';
 import { Agreement } from '@/lib/types';
+import { getAgreementDisplayNumber } from '@/lib/utils';
 import { AgreementForm } from '@/components/agreement/AgreementForm';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -21,29 +23,88 @@ interface AgreementPageProps {
 
 export default function AgreementPage({ params }: AgreementPageProps) {
   const router = useRouter();
-  const { session, currentFounder, founders, updateAgreement, refreshData } = useAppStore();
+  const { address } = useAccount();
+  const { signMessage, data: signatureData, isPending: isSigning, error: signError } = useSignMessage();
+  const { session, currentFounder, founders, agreements, updateAgreement, refreshData } = useAppStore();
   const [agreement, setAgreement] = useState<Agreement | null>(null);
   const [loading, setLoading] = useState(true);
   const [showRevisionModal, setShowRevisionModal] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [pendingApprovalMessage, setPendingApprovalMessage] = useState<string | null>(null);
   
   useEffect(() => {
     if (!session) {
-      router.push('/sign-in');
+      router.push('/');
       return;
     }
     
-    const foundAgreement = agreementStorage.findById(params.id);
-    setAgreement(foundAgreement);
-    setLoading(false);
+    const loadAgreement = async () => {
+      const foundAgreement = await agreementStorage.findById(params.id);
+      setAgreement(foundAgreement);
+      setLoading(false);
+    };
+    
+    loadAgreement();
   }, [params.id, session, router]);
   
   // Refresh agreement data when store updates
   useEffect(() => {
-    const foundAgreement = agreementStorage.findById(params.id);
-    setAgreement(foundAgreement);
+    const loadAgreement = async () => {
+      const foundAgreement = await agreementStorage.findById(params.id);
+      setAgreement(foundAgreement);
+    };
+    
+    loadAgreement();
   }, [params.id, updateAgreement]);
+
+  // Handle signature completion
+  useEffect(() => {
+    if (signatureData && pendingApprovalMessage && agreement && currentFounder) {
+      const processApproval = async () => {
+        try {
+          const result = await approveAgreement(agreement.id, currentFounder.id, signatureData);
+          if (result.success && result.agreement) {
+            updateAgreement(result.agreement);
+            refreshData(); // Refresh to update equity counts
+            setAgreement(result.agreement);
+            
+            if (result.agreement.status === 'approved') {
+              toast.success('Agreement Approved!', 'Both founders have signed and approved this agreement. It can now be marked as completed.');
+            } else {
+              toast.success('Approval Recorded', 'Your signature and approval have been recorded. Waiting for the other founder to sign and approve.');
+            }
+          } else {
+            toast.error('Approval Failed', result.error || 'Failed to approve agreement');
+          }
+        } catch (error: any) {
+          console.error('Approval error:', error);
+          toast.error('Error', error?.message || 'An unexpected error occurred while approving the agreement');
+        } finally {
+          setActionLoading(null);
+          setPendingApprovalMessage(null);
+        }
+      };
+      
+      processApproval();
+    }
+  }, [signatureData, pendingApprovalMessage, agreement, currentFounder, updateAgreement, refreshData]);
+
+  // Handle signature rejection/error
+  useEffect(() => {
+    if (signError) {
+      const errorMessage = signError.message || '';
+      const errorName = signError.name || '';
+      if (errorMessage.includes('reject') || errorMessage.includes('denied') || errorMessage.includes('User rejected') || errorName.includes('UserRejected')) {
+        toast.error('Signature Rejected', 'You must sign the message to approve the agreement');
+      } else {
+        toast.error('Signature Failed', errorMessage || 'Failed to sign message');
+      }
+      setActionLoading(null);
+      setPendingApprovalMessage(null);
+    }
+  }, [signError]);
   
+  // Early returns after all hooks
   if (!session || !currentFounder) {
     return null; // Will redirect
   }
@@ -73,35 +134,58 @@ export default function AgreementPage({ params }: AgreementPageProps) {
   const currentVersion = agreement.versions[agreement.currentVersion];
   
   const isInvolved = agreement.founderAId === currentFounder.id || agreement.founderBId === currentFounder.id;
-  
+
   const handleApprove = async () => {
+    if (!agreement || !currentFounder || !address) {
+      toast.error('Error', 'Missing required information');
+      return;
+    }
+
     setActionLoading('approve');
+    
     try {
-      const result = approveAgreement(agreement.id, currentFounder.id);
-      if (result.success && result.agreement) {
-        updateAgreement(result.agreement);
-        refreshData(); // Refresh to update equity counts
-        setAgreement(result.agreement);
-        
-        if (result.agreement.status === 'approved') {
-          toast.success('Agreement Approved!', 'Both founders have approved this agreement. It can now be marked as completed.');
-        } else {
-          toast.success('Approval Recorded', 'Your approval has been recorded. Waiting for the other founder to approve.');
-        }
-      } else {
-        toast.error('Approval Failed', result.error || 'Failed to approve agreement');
+      const currentVersion = agreement.versions[agreement.currentVersion];
+      if (!currentVersion) {
+        toast.error('Error', 'Invalid agreement version');
+        setActionLoading(null);
+        return;
       }
-    } catch (error) {
-      toast.error('Error', 'An unexpected error occurred while approving the agreement');
-    } finally {
+
+      // Determine which equity amount this founder is offering
+      const equityFromThisFounder = agreement.founderAId === currentFounder.id 
+        ? currentVersion.equityFromCompanyA 
+        : currentVersion.equityFromCompanyB;
+      const equityFromOther = agreement.founderAId === currentFounder.id 
+        ? currentVersion.equityFromCompanyB 
+        : currentVersion.equityFromCompanyA;
+
+      // Generate message to sign (use display number for better UX)
+      const agreementDisplayNumber = getAgreementDisplayNumber(agreement, agreements);
+      const message = generateApprovalMessage(
+        agreementDisplayNumber,
+        agreement.currentVersion,
+        equityFromThisFounder,
+        equityFromOther,
+        currentFounder.founderName
+      );
+
+      // Store message for when signature completes
+      setPendingApprovalMessage(message);
+
+      // Prompt user to sign message
+      signMessage({ message });
+    } catch (error: any) {
+      console.error('Approval error:', error);
+      toast.error('Error', error?.message || 'An unexpected error occurred while approving the agreement');
       setActionLoading(null);
+      setPendingApprovalMessage(null);
     }
   };
   
   const handleComplete = async () => {
     setActionLoading('complete');
     try {
-      const result = completeAgreement(agreement.id, currentFounder.id);
+      const result = await completeAgreement(agreement.id, currentFounder.id);
       if (result.success && result.agreement) {
         updateAgreement(result.agreement);
         setAgreement(result.agreement);
@@ -119,7 +203,7 @@ export default function AgreementPage({ params }: AgreementPageProps) {
   const handleExport = async () => {
     setActionLoading('export');
     try {
-      const result = exportAgreement(agreement);
+      const result = await exportAgreement(agreement);
       if (result.success) {
         toast.success('Export Successful!', 'Agreement has been exported as JSON. Check your downloads folder.');
       } else {
@@ -147,7 +231,7 @@ export default function AgreementPage({ params }: AgreementPageProps) {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="font-space-grotesk font-bold text-3xl text-gray-900 dark:text-gray-100">
-            Agreement {agreement.id}
+            Agreement {getAgreementDisplayNumber(agreement, agreements)}
           </h1>
           <p className="text-gray-600 dark:text-gray-300">
             Version {agreement.currentVersion + 1} of {agreement.versions.length}
@@ -272,6 +356,9 @@ export default function AgreementPage({ params }: AgreementPageProps) {
                 <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
                   Proposed by: {founders.find(f => f.id === version.proposedBy)?.founderName || 'Unknown'} • 
                   Approved by: {version.approvedBy.length} of 2 founders
+                  {version.signatures && (
+                    <span> • Signed by: {Object.keys(version.signatures).length} of 2 founders</span>
+                  )}
                 </div>
               </div>
             ))}
@@ -309,11 +396,12 @@ export default function AgreementPage({ params }: AgreementPageProps) {
           )}
           
           {canApprove && isInvolved && (
-            <Button 
+            <Button
               onClick={handleApprove}
-              loading={actionLoading === 'approve'}
+              loading={actionLoading === 'approve' || isSigning}
+              disabled={isSigning}
             >
-              Approve Current Version
+              {isSigning ? 'Signing Message...' : 'Approve Current Version'}
             </Button>
           )}
           

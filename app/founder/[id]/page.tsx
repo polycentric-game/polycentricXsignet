@@ -4,8 +4,8 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppStore } from '@/lib/store';
 import { founderStorage } from '@/lib/storage';
-import { getEquityRemaining } from '@/lib/validation';
 import { Founder } from '@/lib/types';
+import { getAgreementDisplayNumber } from '@/lib/utils';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -24,17 +24,17 @@ export default function FounderPage({ params }: FounderPageProps) {
   
   useEffect(() => {
     if (!session) {
-      router.push('/sign-in');
+      router.push('/');
       return;
     }
     
-    const foundFounder = founderStorage.findById(params.id);
-    setFounder(foundFounder);
-    setLoading(false);
+    const loadFounder = async () => {
+      const foundFounder = await founderStorage.findById(params.id);
+      setFounder(foundFounder);
+      setLoading(false);
+    };
     
-    if (!foundFounder) {
-      // Will show 404 state
-    }
+    loadFounder();
   }, [params.id, session, router]);
   
   if (!session) {
@@ -62,7 +62,7 @@ export default function FounderPage({ params }: FounderPageProps) {
   }
   
   const isOwnProfile = currentFounder?.id === founder.id;
-  const equityRemaining = getEquityRemaining(founder.id);
+  const equityRemaining = founder.totalEquityAvailable - founder.equitySwapped;
   const founderAgreements = agreements.filter(
     a => a.founderAId === founder.id || a.founderBId === founder.id
   );
@@ -267,7 +267,7 @@ export default function FounderPage({ params }: FounderPageProps) {
               >
                 <div>
                   <div className="font-medium text-gray-900 dark:text-gray-100">
-                    Agreement {agreement.id}
+                    Agreement {getAgreementDisplayNumber(agreement, agreements)}
                   </div>
                   <div className="text-sm text-gray-600 dark:text-gray-300">
                     Status: {agreement.status}

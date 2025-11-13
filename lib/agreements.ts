@@ -2,22 +2,31 @@ import { Agreement, AgreementVersion, AgreementStatus, Founder } from './types';
 import { agreementStorage, founderStorage, generateAgreementId } from './storage';
 import { validateAgreementEquity } from './validation';
 
-// Create new agreement
-export function createAgreement(
+// Create new agreement (requires signature)
+export async function createAgreement(
   founderAId: string,
   founderBId: string,
   equityFromA: number,
   equityFromB: number,
   notes: string,
-  initiatedBy: string
-): { success: boolean; agreement?: Agreement; error?: string } {
+  initiatedBy: string,
+  signature: string
+): Promise<{ success: boolean; agreement?: Agreement; error?: string }> {
   // Validate equity amounts
-  const validationErrors = validateAgreementEquity(founderAId, founderBId, equityFromA, equityFromB);
+  const validationErrors = await validateAgreementEquity(founderAId, founderBId, equityFromA, equityFromB);
   if (validationErrors.length > 0) {
     return { success: false, error: validationErrors[0].message };
   }
   
-  // Create initial version
+  // Verify signature is provided
+  if (!signature) {
+    return { success: false, error: 'Signature is required to create agreement' };
+  }
+  
+  // Create initial version with signature
+  const signatures: { [founderId: string]: string } = {};
+  signatures[initiatedBy] = signature;
+  
   const initialVersion: AgreementVersion = {
     versionNumber: 0,
     equityFromCompanyA: equityFromA,
@@ -25,12 +34,14 @@ export function createAgreement(
     notes,
     proposedBy: initiatedBy,
     proposedAt: new Date().toISOString(),
-    approvedBy: [initiatedBy], // Initiator auto-approves
+    approvedBy: [initiatedBy], // Proposer signs and approves by signing
+    signatures, // Store proposer's signature
   };
   
   // Create agreement
+  const agreementId = await generateAgreementId();
   const agreement: Agreement = {
-    id: generateAgreementId(),
+    id: agreementId,
     founderAId,
     founderBId,
     status: 'proposed',
@@ -42,19 +53,20 @@ export function createAgreement(
     updatedAt: new Date().toISOString(),
   };
   
-  agreementStorage.save(agreement);
+  await agreementStorage.save(agreement);
   return { success: true, agreement };
 }
 
-// Propose revision to existing agreement
-export function proposeRevision(
+// Propose revision to existing agreement (requires signature)
+export async function proposeRevision(
   agreementId: string,
   equityFromA: number,
   equityFromB: number,
   notes: string,
-  proposedBy: string
-): { success: boolean; agreement?: Agreement; error?: string } {
-  const agreement = agreementStorage.findById(agreementId);
+  proposedBy: string,
+  signature: string
+): Promise<{ success: boolean; agreement?: Agreement; error?: string }> {
+  const agreement = await agreementStorage.findById(agreementId);
   if (!agreement) {
     return { success: false, error: 'Agreement not found' };
   }
@@ -70,7 +82,7 @@ export function proposeRevision(
   }
   
   // Validate equity amounts
-  const validationErrors = validateAgreementEquity(
+  const validationErrors = await validateAgreementEquity(
     agreement.founderAId, 
     agreement.founderBId, 
     equityFromA, 
@@ -81,7 +93,15 @@ export function proposeRevision(
     return { success: false, error: validationErrors[0].message };
   }
   
-  // Create new version
+  // Verify signature is provided
+  if (!signature) {
+    return { success: false, error: 'Signature is required to propose revision' };
+  }
+  
+  // Create new version with signature
+  const signatures: { [founderId: string]: string } = {};
+  signatures[proposedBy] = signature;
+  
   const newVersion: AgreementVersion = {
     versionNumber: agreement.versions.length,
     equityFromCompanyA: equityFromA,
@@ -89,7 +109,8 @@ export function proposeRevision(
     notes,
     proposedBy,
     proposedAt: new Date().toISOString(),
-    approvedBy: [proposedBy], // Proposer auto-approves
+    approvedBy: [proposedBy], // Proposer signs and approves by signing
+    signatures, // Store proposer's signature
   };
   
   // Update agreement
@@ -102,16 +123,58 @@ export function proposeRevision(
     updatedAt: new Date().toISOString(),
   };
   
-  agreementStorage.save(updatedAgreement);
+  await agreementStorage.save(updatedAgreement);
   return { success: true, agreement: updatedAgreement };
 }
 
-// Approve current version of agreement
-export function approveAgreement(
+// Generate message to sign for creating a new agreement
+export function generateCreateAgreementMessage(
+  equityFromA: number,
+  equityFromB: number,
+  founderName: string,
+  otherFounderName: string
+): string {
+  return `I, ${founderName}, propose a new equity swap agreement:\n\n` +
+         `I will exchange ${equityFromA}% of my company's equity for ${equityFromB}% of ${otherFounderName}'s company equity.\n\n` +
+         `This signature confirms my proposal of these terms.\n\n` +
+         `Timestamp: ${new Date().toISOString()}`;
+}
+
+// Generate message to sign for proposing a revision
+export function generateRevisionMessage(
+  agreementDisplayNumber: number,
+  versionNumber: number,
+  equityFromA: number,
+  equityFromB: number,
+  founderName: string
+): string {
+  return `I, ${founderName}, propose Revision ${versionNumber + 1} to Agreement ${agreementDisplayNumber}:\n\n` +
+         `I propose to exchange ${equityFromA}% of my company's equity for ${equityFromB}% of the other company's equity.\n\n` +
+         `This signature confirms my proposal of these revised terms.\n\n` +
+         `Timestamp: ${new Date().toISOString()}`;
+}
+
+// Generate message to sign for agreement approval
+export function generateApprovalMessage(
+  agreementDisplayNumber: number,
+  versionNumber: number,
+  equityFromA: number,
+  equityFromB: number,
+  founderName: string
+): string {
+  return `I, ${founderName}, approve Agreement ${agreementDisplayNumber}, Version ${versionNumber + 1}:\n\n` +
+         `I will exchange ${equityFromA}% of my company's equity for ${equityFromB}% of the other company's equity.\n\n` +
+         `This signature confirms my agreement to these terms.\n\n` +
+         `Timestamp: ${new Date().toISOString()}`;
+}
+
+// Approve current version of agreement (requires signature)
+export async function approveAgreement(
   agreementId: string,
-  founderId: string
-): { success: boolean; agreement?: Agreement; error?: string } {
-  const agreement = agreementStorage.findById(agreementId);
+  founderId: string,
+  signature: string
+): Promise<{ success: boolean; agreement?: Agreement; error?: string }> {
+  const agreement = await agreementStorage.findById(agreementId);
   if (!agreement) {
     return { success: false, error: 'Agreement not found' };
   }
@@ -136,26 +199,42 @@ export function approveAgreement(
     return { success: false, error: 'You have already approved this version' };
   }
   
-  // Add approval
+  // Verify signature is provided
+  if (!signature) {
+    return { success: false, error: 'Signature is required to approve agreement' };
+  }
+  
+  // Add approval and signature
+  const signatures = currentVersion.signatures || {};
+  signatures[founderId] = signature;
+  
+  // Only add to approvedBy if not already there (shouldn't happen, but safety check)
+  const updatedApprovedBy = currentVersion.approvedBy.includes(founderId)
+    ? currentVersion.approvedBy
+    : [...currentVersion.approvedBy, founderId];
+  
   const updatedVersion: AgreementVersion = {
     ...currentVersion,
-    approvedBy: [...currentVersion.approvedBy, founderId],
+    approvedBy: updatedApprovedBy,
+    signatures,
   };
   
   const updatedVersions = [...agreement.versions];
   updatedVersions[agreement.currentVersion] = updatedVersion;
   
-  // Check if both founders have approved
+  // Check if both founders have approved (and signed)
   const bothApproved = updatedVersion.approvedBy.includes(agreement.founderAId) && 
-                      updatedVersion.approvedBy.includes(agreement.founderBId);
+                      updatedVersion.approvedBy.includes(agreement.founderBId) &&
+                      signatures[agreement.founderAId] && 
+                      signatures[agreement.founderBId];
   
   let newStatus: AgreementStatus = agreement.status;
   if (bothApproved) {
     newStatus = 'approved';
     
     // Update equity swapped for both founders
-    const founderA = founderStorage.findById(agreement.founderAId);
-    const founderB = founderStorage.findById(agreement.founderBId);
+    const founderA = await founderStorage.findById(agreement.founderAId);
+    const founderB = await founderStorage.findById(agreement.founderBId);
     
     if (founderA && founderB) {
       founderA.equitySwapped += currentVersion.equityFromCompanyA;
@@ -163,8 +242,8 @@ export function approveAgreement(
       founderA.updatedAt = new Date().toISOString();
       founderB.updatedAt = new Date().toISOString();
       
-      founderStorage.save(founderA);
-      founderStorage.save(founderB);
+      await founderStorage.save(founderA);
+      await founderStorage.save(founderB);
     }
   }
   
@@ -176,16 +255,16 @@ export function approveAgreement(
     updatedAt: new Date().toISOString(),
   };
   
-  agreementStorage.save(updatedAgreement);
+  await agreementStorage.save(updatedAgreement);
   return { success: true, agreement: updatedAgreement };
 }
 
-// Mark agreement as completed
-export function completeAgreement(
+// Mark agreement as completed (requires both founders to have signed)
+export async function completeAgreement(
   agreementId: string,
   founderId: string
-): { success: boolean; agreement?: Agreement; error?: string } {
-  const agreement = agreementStorage.findById(agreementId);
+): Promise<{ success: boolean; agreement?: Agreement; error?: string }> {
+  const agreement = await agreementStorage.findById(agreementId);
   if (!agreement) {
     return { success: false, error: 'Agreement not found' };
   }
@@ -200,6 +279,13 @@ export function completeAgreement(
     return { success: false, error: 'Agreement must be approved before completion' };
   }
   
+  // Verify both founders have signed
+  const currentVersion = agreement.versions[agreement.currentVersion];
+  const signatures = currentVersion?.signatures || {};
+  if (!signatures[agreement.founderAId] || !signatures[agreement.founderBId]) {
+    return { success: false, error: 'Both founders must sign the agreement before it can be completed' };
+  }
+  
   // Update agreement
   const updatedAgreement: Agreement = {
     ...agreement,
@@ -207,7 +293,7 @@ export function completeAgreement(
     updatedAt: new Date().toISOString(),
   };
   
-  agreementStorage.save(updatedAgreement);
+  await agreementStorage.save(updatedAgreement);
   return { success: true, agreement: updatedAgreement };
 }
 
@@ -250,10 +336,10 @@ export function canReviseAgreement(agreement: Agreement, founderId: string): boo
 }
 
 // Get other founder in agreement
-export function getOtherFounder(agreement: Agreement, currentFounderId: string): Founder | null {
+export async function getOtherFounder(agreement: Agreement, currentFounderId: string): Promise<Founder | null> {
   const otherFounderId = agreement.founderAId === currentFounderId 
     ? agreement.founderBId 
     : agreement.founderAId;
   
-  return founderStorage.findById(otherFounderId);
+  return await founderStorage.findById(otherFounderId);
 }

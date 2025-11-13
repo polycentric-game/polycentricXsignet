@@ -2,9 +2,9 @@ import { Agreement, SignetExport } from './types';
 import { founderStorage } from './storage';
 
 // Generate Signet export format
-export function generateSignetExport(agreement: Agreement): SignetExport | null {
-  const founderA = founderStorage.findById(agreement.founderAId);
-  const founderB = founderStorage.findById(agreement.founderBId);
+export async function generateSignetExport(agreement: Agreement): Promise<SignetExport | null> {
+  const founderA = await founderStorage.findById(agreement.founderAId);
+  const founderB = await founderStorage.findById(agreement.founderBId);
   
   if (!founderA || !founderB) {
     return null;
@@ -107,12 +107,12 @@ export function downloadSignetExport(signetExport: SignetExport): void {
 }
 
 // Export agreement
-export function exportAgreement(agreement: Agreement): { success: boolean; error?: string } {
+export async function exportAgreement(agreement: Agreement): Promise<{ success: boolean; error?: string }> {
   if (agreement.status !== 'approved' && agreement.status !== 'completed') {
     return { success: false, error: 'Can only export approved or completed agreements' };
   }
   
-  const signetExport = generateSignetExport(agreement);
+  const signetExport = await generateSignetExport(agreement);
   if (!signetExport) {
     return { success: false, error: 'Failed to generate export data' };
   }

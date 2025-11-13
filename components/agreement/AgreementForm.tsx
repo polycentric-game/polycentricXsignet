@@ -1,9 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useAccount, useSignMessage } from 'wagmi';
 import { useAppStore } from '@/lib/store';
-import { createAgreement, proposeRevision } from '@/lib/agreements';
+import { createAgreement, proposeRevision, generateCreateAgreementMessage, generateRevisionMessage } from '@/lib/agreements';
 import { validateAgreementEquity } from '@/lib/validation';
+import { getAgreementDisplayNumber } from '@/lib/utils';
 import { toast } from '@/lib/toastStore';
 import { Agreement, Founder } from '@/lib/types';
 import { Button } from '@/components/ui/Button';
@@ -20,7 +22,9 @@ interface AgreementFormProps {
 }
 
 export function AgreementForm({ agreement, onSubmit, onCancel, isLoading = false }: AgreementFormProps) {
-  const { currentFounder, founders, updateAgreement, addAgreement } = useAppStore();
+  const { address } = useAccount();
+  const { signMessage, data: signatureData, isPending: isSigning, error: signError } = useSignMessage();
+  const { currentFounder, founders, agreements, updateAgreement, addAgreement } = useAppStore();
   
   // Get other founders (exclude current founder)
   const otherFounders = founders.filter(f => f.id !== currentFounder?.id);
@@ -35,13 +39,94 @@ export function AgreementForm({ agreement, onSubmit, onCancel, isLoading = false
   
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [pendingSubmission, setPendingSubmission] = useState<{
+    type: 'create' | 'revision';
+    data: any;
+  } | null>(null);
+  const [pendingMessage, setPendingMessage] = useState<string | null>(null);
   
+  // Handle signature completion
+  useEffect(() => {
+    if (signatureData && pendingSubmission && pendingMessage && currentFounder) {
+      const processSubmission = async () => {
+        try {
+          let result;
+          
+          if (pendingSubmission.type === 'create') {
+            result = await createAgreement(
+              pendingSubmission.data.founderAId,
+              pendingSubmission.data.founderBId,
+              pendingSubmission.data.equityFromA,
+              pendingSubmission.data.equityFromB,
+              pendingSubmission.data.notes,
+              pendingSubmission.data.initiatedBy,
+              signatureData
+            );
+          } else {
+            result = await proposeRevision(
+              pendingSubmission.data.agreementId,
+              pendingSubmission.data.equityFromA,
+              pendingSubmission.data.equityFromB,
+              pendingSubmission.data.notes,
+              pendingSubmission.data.proposedBy,
+              signatureData
+            );
+          }
+          
+          if (result.success && result.agreement) {
+            if (pendingSubmission.type === 'revision') {
+              updateAgreement(result.agreement);
+              toast.success('Revision Proposed!', 'Your revision has been proposed. The other founder can now review and approve it.');
+            } else {
+              addAgreement(result.agreement);
+              toast.success('Agreement Created!', 'Your equity swap proposal has been sent to the other founder.');
+            }
+            onSubmit(result.agreement);
+          } else {
+            setErrors({ general: result.error || 'Failed to save agreement' });
+          }
+        } catch (error: any) {
+          console.error('Submission error:', error);
+          setErrors({ general: error?.message || 'An unexpected error occurred' });
+        } finally {
+          setSubmitting(false);
+          setPendingSubmission(null);
+          setPendingMessage(null);
+        }
+      };
+      
+      processSubmission();
+    }
+  }, [signatureData, pendingSubmission, pendingMessage, currentFounder, updateAgreement, addAgreement, onSubmit]);
+
+  // Handle signature rejection/error
+  useEffect(() => {
+    if (signError) {
+      const errorMessage = signError.message || '';
+      const errorName = signError.name || '';
+      if (errorMessage.includes('reject') || errorMessage.includes('denied') || errorMessage.includes('User rejected') || errorName.includes('UserRejected')) {
+        toast.error('Signature Rejected', 'You must sign the message to ' + (agreement ? 'propose this revision' : 'create this agreement'));
+      } else {
+        toast.error('Signature Failed', errorMessage || 'Failed to sign message');
+      }
+      setSubmitting(false);
+      setPendingSubmission(null);
+      setPendingMessage(null);
+    }
+  }, [signError, agreement]);
+
   if (!currentFounder) {
     return null;
   }
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!address) {
+      toast.error('Error', 'Wallet address not found');
+      return;
+    }
+    
     setSubmitting(true);
     setErrors({});
     
@@ -49,11 +134,12 @@ export function AgreementForm({ agreement, onSubmit, onCancel, isLoading = false
       // Validate form
       if (!formData.founderBId) {
         setErrors({ founderBId: 'Please select a founder to create agreement with' });
+        setSubmitting(false);
         return;
       }
       
       // Validate equity amounts
-      const validationErrors = validateAgreementEquity(
+      const validationErrors = await validateAgreementEquity(
         currentFounder.id,
         formData.founderBId,
         formData.equityFromA,
@@ -67,47 +153,73 @@ export function AgreementForm({ agreement, onSubmit, onCancel, isLoading = false
           errorMap[error.field] = error.message;
         });
         setErrors(errorMap);
+        setSubmitting(false);
         return;
       }
       
-      let result;
+      // Determine equity amounts for signature message
+      const equityFromThisFounder = agreement?.founderAId === currentFounder.id 
+        ? formData.equityFromA 
+        : formData.equityFromB;
+      const equityFromOther = agreement?.founderAId === currentFounder.id 
+        ? formData.equityFromB 
+        : formData.equityFromA;
+      
+      let message: string;
       
       if (agreement) {
-        // Propose revision
-        result = proposeRevision(
-          agreement.id,
-          formData.equityFromA,
-          formData.equityFromB,
-          formData.notes,
-          currentFounder.id
+        // Generate revision message
+        const agreementDisplayNumber = getAgreementDisplayNumber(agreement, agreements);
+        const versionNumber = agreement.versions.length;
+        message = generateRevisionMessage(
+          agreementDisplayNumber,
+          versionNumber,
+          equityFromThisFounder,
+          equityFromOther,
+          currentFounder.founderName
         );
+        
+        // Store pending submission
+        setPendingSubmission({
+          type: 'revision',
+          data: {
+            agreementId: agreement.id,
+            equityFromA: formData.equityFromA,
+            equityFromB: formData.equityFromB,
+            notes: formData.notes,
+            proposedBy: currentFounder.id,
+          }
+        });
       } else {
-        // Create new agreement
-        result = createAgreement(
-          currentFounder.id,
-          formData.founderBId,
-          formData.equityFromA,
-          formData.equityFromB,
-          formData.notes,
-          currentFounder.id
+        // Generate create agreement message
+        const otherFounder = founders.find(f => f.id === formData.founderBId);
+        message = generateCreateAgreementMessage(
+          equityFromThisFounder,
+          equityFromOther,
+          currentFounder.founderName,
+          otherFounder?.founderName || 'the other founder'
         );
+        
+        // Store pending submission
+        setPendingSubmission({
+          type: 'create',
+          data: {
+            founderAId: currentFounder.id,
+            founderBId: formData.founderBId,
+            equityFromA: formData.equityFromA,
+            equityFromB: formData.equityFromB,
+            notes: formData.notes,
+            initiatedBy: currentFounder.id,
+          }
+        });
       }
       
-      if (result.success && result.agreement) {
-        if (agreement) {
-          updateAgreement(result.agreement);
-          toast.success('Revision Proposed!', 'Your revision has been proposed. The other founder can now review and approve it.');
-        } else {
-          addAgreement(result.agreement);
-          toast.success('Agreement Created!', 'Your equity swap proposal has been sent to the other founder.');
-        }
-        onSubmit(result.agreement);
-      } else {
-        setErrors({ general: result.error || 'Failed to save agreement' });
-      }
-    } catch (error) {
-      setErrors({ general: 'An unexpected error occurred' });
-    } finally {
+      // Store message and prompt for signature
+      setPendingMessage(message);
+      signMessage({ message });
+    } catch (error: any) {
+      console.error('Submit error:', error);
+      setErrors({ general: error?.message || 'An unexpected error occurred' });
       setSubmitting(false);
     }
   };
@@ -246,10 +358,11 @@ export function AgreementForm({ agreement, onSubmit, onCancel, isLoading = false
             </Button>
             <Button
               type="submit"
-              loading={submitting || isLoading}
+              loading={submitting || isLoading || isSigning}
+              disabled={isSigning}
               className="sm:min-w-[140px]"
             >
-              {agreement ? 'Propose Revision' : 'Create Agreement'}
+              {isSigning ? 'Signing Message...' : (agreement ? 'Propose Revision' : 'Create Agreement')}
             </Button>
           </div>
         </form>

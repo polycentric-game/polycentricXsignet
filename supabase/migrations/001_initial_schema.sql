@@ -21,6 +21,7 @@ CREATE TABLE founders (
   company_description TEXT NOT NULL,
   stage TEXT NOT NULL,
   current_valuation_range TEXT NOT NULL,
+  revenue_status TEXT NOT NULL DEFAULT 'Pre-revenue',
   business_model TEXT NOT NULL,
   key_assets TEXT[] NOT NULL,
   swap_motivation TEXT NOT NULL,

@@ -45,7 +45,12 @@ export async function signInWithWallet(address: string): Promise<AuthResult> {
     await sessionStorage.save(session);
     
     return { success: true, user, session };
-  } catch (error) {
+  } catch (error: any) {
+    // Check if it's a table missing error
+    if (error?.code === 'PGRST205' || error?.message?.includes('Could not find the table')) {
+      console.error('Database tables not found. Please run the migration:', error.message);
+      return { success: false, error: 'Database not set up. Please run the migration to create tables.' };
+    }
     console.error('Sign in error:', error);
     return { success: false, error: 'Failed to sign in with wallet' };
   }
