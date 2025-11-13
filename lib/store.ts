@@ -44,50 +44,55 @@ export const useAppStore = create<AppState>((set, get) => ({
   isLoading: true,
   
   // Initialize app - load session, theme, and data
-  initializeApp: () => {
-    // Initialize sample data if needed
-    initializeSampleData();
-    
-    const session = getCurrentSession();
-    const user = getCurrentUser();
-    const theme = themeStorage.get();
-    const founders = founderStorage.getAll();
-    const agreements = agreementStorage.getAll();
-    
-    let currentFounder: Founder | null = null;
-    if (session?.founderId) {
-      currentFounder = founderStorage.findById(session.founderId);
-    } else if (user) {
-      // Auto-select founder if user has one
-      currentFounder = founderStorage.findByUserId(user.id);
-      if (currentFounder && session) {
-        session.founderId = currentFounder.id;
+  initializeApp: async () => {
+    try {
+      // Initialize sample data if needed
+      initializeSampleData();
+      
+      const session = getCurrentSession();
+      const user = session ? await getCurrentUser() : null;
+      const theme = themeStorage.get();
+      const founders = await founderStorage.getAll();
+      const agreements = await agreementStorage.getAll();
+      
+      let currentFounder: Founder | null = null;
+      if (session?.founderId) {
+        currentFounder = await founderStorage.findById(session.founderId);
+      } else if (user) {
+        // Auto-select founder if user has one
+        currentFounder = await founderStorage.findByUserId(user.id);
+        if (currentFounder && session) {
+          session.founderId = currentFounder.id;
+        }
       }
-    }
-    
-    set({
-      session,
-      user,
-      currentFounder,
-      theme,
-      founders,
-      agreements,
-      isLoading: false,
-    });
-    
-    // Apply theme to document
-    if (typeof window !== 'undefined') {
-      document.documentElement.classList.toggle('dark', theme === 'dark');
+      
+      set({
+        session,
+        user,
+        currentFounder,
+        theme,
+        founders,
+        agreements,
+        isLoading: false,
+      });
+      
+      // Apply theme to document
+      if (typeof window !== 'undefined') {
+        document.documentElement.classList.toggle('dark', theme === 'dark');
+      }
+    } catch (error) {
+      console.error('Failed to initialize app:', error);
+      set({ isLoading: false });
     }
   },
   
   // Set authentication session
-  setSession: (session, user) => {
+  setSession: async (session, user) => {
     let currentFounder: Founder | null = null;
     if (session?.founderId) {
-      currentFounder = founderStorage.findById(session.founderId);
+      currentFounder = await founderStorage.findById(session.founderId);
     } else if (user) {
-      currentFounder = founderStorage.findByUserId(user.id);
+      currentFounder = await founderStorage.findByUserId(user.id);
     }
     
     set({ session, user, currentFounder });
@@ -119,37 +124,57 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   
   // Refresh data from storage
-  refreshData: () => {
-    const founders = founderStorage.getAll();
-    const agreements = agreementStorage.getAll();
-    set({ founders, agreements });
+  refreshData: async () => {
+    try {
+      const founders = await founderStorage.getAll();
+      const agreements = await agreementStorage.getAll();
+      set({ founders, agreements });
+    } catch (error) {
+      console.error('Failed to refresh data:', error);
+    }
   },
   
   // Add founder
-  addFounder: (founder) => {
-    founderStorage.save(founder);
-    const founders = [...get().founders, founder];
-    set({ founders });
+  addFounder: async (founder) => {
+    try {
+      const savedFounder = await founderStorage.save(founder);
+      const founders = [...get().founders, savedFounder];
+      set({ founders });
+    } catch (error) {
+      console.error('Failed to add founder:', error);
+    }
   },
   
   // Update founder
-  updateFounder: (founder) => {
-    founderStorage.save(founder);
-    const founders = get().founders.map(f => f.id === founder.id ? founder : f);
-    set({ founders });
+  updateFounder: async (founder) => {
+    try {
+      const updatedFounder = await founderStorage.save(founder);
+      const founders = get().founders.map(f => f.id === founder.id ? updatedFounder : f);
+      set({ founders });
+    } catch (error) {
+      console.error('Failed to update founder:', error);
+    }
   },
   
   // Add agreement
-  addAgreement: (agreement) => {
-    agreementStorage.save(agreement);
-    const agreements = [...get().agreements, agreement];
-    set({ agreements });
+  addAgreement: async (agreement) => {
+    try {
+      const savedAgreement = await agreementStorage.save(agreement);
+      const agreements = [...get().agreements, savedAgreement];
+      set({ agreements });
+    } catch (error) {
+      console.error('Failed to add agreement:', error);
+    }
   },
   
   // Update agreement
-  updateAgreement: (agreement) => {
-    agreementStorage.save(agreement);
-    const agreements = get().agreements.map(a => a.id === agreement.id ? agreement : a);
-    set({ agreements });
+  updateAgreement: async (agreement) => {
+    try {
+      const updatedAgreement = await agreementStorage.save(agreement);
+      const agreements = get().agreements.map(a => a.id === agreement.id ? updatedAgreement : a);
+      set({ agreements });
+    } catch (error) {
+      console.error('Failed to update agreement:', error);
+    }
   },
 }));

@@ -62,38 +62,8 @@ CREATE INDEX idx_agreements_founder_b_id ON agreements(founder_b_id);
 CREATE INDEX idx_sessions_user_id ON sessions(user_id);
 CREATE INDEX idx_sessions_expires_at ON sessions(expires_at);
 
--- Row Level Security (RLS) policies
-ALTER TABLE users ENABLE ROW LEVEL SECURITY;
-ALTER TABLE founders ENABLE ROW LEVEL SECURITY;
-ALTER TABLE agreements ENABLE ROW LEVEL SECURITY;
-ALTER TABLE sessions ENABLE ROW LEVEL SECURITY;
-
--- Users can only see their own data
-CREATE POLICY "Users can view own data" ON users FOR SELECT USING (true);
-CREATE POLICY "Users can insert own data" ON users FOR INSERT WITH CHECK (true);
-CREATE POLICY "Users can update own data" ON users FOR UPDATE USING (true);
-
--- Founders can be viewed by all users, but only updated by owner
-CREATE POLICY "Founders are viewable by all" ON founders FOR SELECT USING (true);
-CREATE POLICY "Users can insert own founders" ON founders FOR INSERT WITH CHECK (true);
-CREATE POLICY "Users can update own founders" ON founders FOR UPDATE USING (user_id = auth.uid()::uuid);
-
--- Agreements can be viewed by all users, but only updated by participants
-CREATE POLICY "Agreements are viewable by all" ON agreements FOR SELECT USING (true);
-CREATE POLICY "Users can insert agreements" ON agreements FOR INSERT WITH CHECK (true);
-CREATE POLICY "Participants can update agreements" ON agreements FOR UPDATE USING (
-  EXISTS (
-    SELECT 1 FROM founders 
-    WHERE (founders.id = agreements.founder_a_id OR founders.id = agreements.founder_b_id)
-    AND founders.user_id = auth.uid()::uuid
-  )
-);
-
--- Sessions are private to the user
-CREATE POLICY "Users can view own sessions" ON sessions FOR SELECT USING (user_id = auth.uid()::uuid);
-CREATE POLICY "Users can insert own sessions" ON sessions FOR INSERT WITH CHECK (user_id = auth.uid()::uuid);
-CREATE POLICY "Users can update own sessions" ON sessions FOR UPDATE USING (user_id = auth.uid()::uuid);
-CREATE POLICY "Users can delete own sessions" ON sessions FOR DELETE USING (user_id = auth.uid()::uuid);
+-- Note: RLS is disabled since we're using custom wallet authentication
+-- All access control is handled at the application level
 
 -- Function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()

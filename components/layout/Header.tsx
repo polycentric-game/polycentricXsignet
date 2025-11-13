@@ -17,7 +17,7 @@ export function Header() {
   const { session, clearSession } = useAppStore();
 
   const handleSignOut = async () => {
-    signOut();
+    await signOut();
     clearSession();
     await disconnect();
     // Clear all RainbowKit and Wagmi persisted connection state

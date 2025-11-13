@@ -28,7 +28,8 @@
     "@rainbow-me/rainbowkit": "^2.0.0",
     "wagmi": "^2.0.0",
     "viem": "^2.0.0",
-    "@tanstack/react-query": "^5.0.0"
+    "@tanstack/react-query": "^5.0.0",
+    "@supabase/supabase-js": "^2.38.0"
   },
   "devDependencies": {
     "eslint": "^8.0.0",

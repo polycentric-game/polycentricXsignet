@@ -26,24 +26,29 @@ export async function signInWithWallet(address: string): Promise<AuthResult> {
     return { success: false, error: 'Wallet address is required' };
   }
   
-  // Check if user exists with this address
-  let user = userStorage.findByEthereumAddress(address);
-  
-  if (!user) {
-    // Create new user
-    user = {
-      id: generateId('user_'),
-      ethereumAddress: address,
-      createdAt: new Date().toISOString(),
-    };
-    userStorage.save(user);
+  try {
+    // Check if user exists with this address
+    let user = await userStorage.findByEthereumAddress(address);
+    
+    if (!user) {
+      // Create new user
+      user = {
+        id: generateId('user_'),
+        ethereumAddress: address,
+        createdAt: new Date().toISOString(),
+      };
+      user = await userStorage.save(user);
+    }
+    
+    // Create session
+    const session = createSession(user.id);
+    await sessionStorage.save(session);
+    
+    return { success: true, user, session };
+  } catch (error) {
+    console.error('Sign in error:', error);
+    return { success: false, error: 'Failed to sign in with wallet' };
   }
-  
-  // Create session
-  const session = createSession(user.id);
-  sessionStorage.save(session);
-  
-  return { success: true, user, session };
 }
 
 // Get current session
@@ -56,21 +61,26 @@ export function getCurrentSession(): AuthSession | null {
 }
 
 // Get current user
-export function getCurrentUser(): User | null {
+export async function getCurrentUser(): Promise<User | null> {
   const session = getCurrentSession();
   if (!session) return null;
   
-  return userStorage.findById(session.userId);
+  try {
+    return await userStorage.findById(session.userId);
+  } catch (error) {
+    console.error('Error getting current user:', error);
+    return null;
+  }
 }
 
 // Sign out
-export function signOut(): void {
-  sessionStorage.clear();
+export async function signOut(): Promise<void> {
+  await sessionStorage.clear();
 }
 
 // Check if user is authenticated
-export function isAuthenticated(): boolean {
-  return sessionStorage.isValid();
+export async function isAuthenticated(): Promise<boolean> {
+  return await sessionStorage.isValid();
 }
 
 // Update session with founder ID
