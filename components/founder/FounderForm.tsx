@@ -312,12 +312,13 @@ export function FounderForm({ founder, onSubmit, onCancel, isLoading = false }: 
               <Input
                 label="Total Equity Available for Swaps (%)"
                 type="number"
-                min="1"
+                min="0.001"
                 max="100"
+                step="0.001"
                 value={formData.totalEquityAvailable}
-                onChange={(e) => handleInputChange('totalEquityAvailable', parseInt(e.target.value) || 0)}
+                onChange={(e) => handleInputChange('totalEquityAvailable', parseFloat(e.target.value) || 0)}
                 error={errors.totalEquityAvailable}
-                helperText="Percentage of your company equity you're willing to swap"
+                helperText="Percentage of your company equity you're willing to swap (minimum 0.001%)"
                 required
               />
               {founder && (

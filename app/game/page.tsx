@@ -137,7 +137,7 @@ function GamePageContent() {
         </div>
         <Button onClick={handleCreateAgreement} className="flex items-center space-x-2">
           <Plus className="h-4 w-4" />
-          <span>Create Agreement</span>
+          <span>Propose Agreement</span>
         </Button>
       </div>
       
@@ -215,11 +215,11 @@ function GamePageContent() {
         </div>
       </Card>
       
-      {/* Create Agreement Modal */}
+      {/* Propose Agreement Modal */}
       <Modal
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
-        title="Create New Agreement"
+        title="Propose New Agreement"
         size="lg"
       >
         <AgreementForm

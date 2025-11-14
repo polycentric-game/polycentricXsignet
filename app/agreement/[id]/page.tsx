@@ -353,7 +353,7 @@ export default function AgreementPage({ params }: AgreementPageProps) {
               <div className="space-y-2">
                 <div className="text-sm text-gray-500 dark:text-gray-400">Equity Offered</div>
                 <div className="text-2xl font-bold text-primary">
-                  {currentVersion?.equityFromCompanyA}%
+                  {typeof currentVersion?.equityFromCompanyA === 'number' ? currentVersion.equityFromCompanyA.toFixed(3) : currentVersion?.equityFromCompanyA}%
                 </div>
               </div>
             </div>
@@ -370,7 +370,7 @@ export default function AgreementPage({ params }: AgreementPageProps) {
               <div className="space-y-2">
                 <div className="text-sm text-gray-500 dark:text-gray-400">Equity Offered</div>
                 <div className="text-2xl font-bold text-primary">
-                  {currentVersion?.equityFromCompanyB}%
+                  {typeof currentVersion?.equityFromCompanyB === 'number' ? currentVersion.equityFromCompanyB.toFixed(3) : currentVersion?.equityFromCompanyB}%
                 </div>
               </div>
             </div>
@@ -423,7 +423,7 @@ export default function AgreementPage({ params }: AgreementPageProps) {
                       {founderA?.companyName}: 
                     </span>
                     <span className="ml-1 font-medium text-gray-900 dark:text-gray-100">
-                      {version.equityFromCompanyA}%
+                      {typeof version.equityFromCompanyA === 'number' ? version.equityFromCompanyA.toFixed(3) : version.equityFromCompanyA}%
                     </span>
                   </div>
                   <div>
@@ -431,7 +431,7 @@ export default function AgreementPage({ params }: AgreementPageProps) {
                       {founderB?.companyName}: 
                     </span>
                     <span className="ml-1 font-medium text-gray-900 dark:text-gray-100">
-                      {version.equityFromCompanyB}%
+                      {typeof version.equityFromCompanyB === 'number' ? version.equityFromCompanyB.toFixed(3) : version.equityFromCompanyB}%
                     </span>
                   </div>
                 </div>

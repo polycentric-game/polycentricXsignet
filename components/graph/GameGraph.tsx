@@ -279,9 +279,9 @@ export const GameGraph = forwardRef<GameGraphRef, GameGraphProps>(({
             <em>${founder.companyName}</em><br/>
             ${founder.founderType}<br/>
             <br/>
-            Equity Available: ${remaining}%<br/>
-            Total Equity: ${founder.totalEquityAvailable}%<br/>
-            Already Swapped: ${founder.equitySwapped}%
+            Equity Available: ${typeof remaining === 'number' ? remaining.toFixed(3) : remaining}%<br/>
+            Total Equity: ${typeof founder.totalEquityAvailable === 'number' ? founder.totalEquityAvailable.toFixed(3) : founder.totalEquityAvailable}%<br/>
+            Already Swapped: ${typeof founder.equitySwapped === 'number' ? founder.equitySwapped.toFixed(3) : founder.equitySwapped}%
           `)
           .style('left', (event.pageX + 10) + 'px')
           .style('top', (event.pageY - 10) + 'px');

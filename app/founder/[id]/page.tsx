@@ -92,7 +92,7 @@ export default function FounderPage({ params }: FounderPageProps) {
           {isOwnProfile && (
             <Button 
               variant="secondary" 
-              onClick={() => router.push('/profile')}
+              onClick={() => router.push(`/founder/${founder.id}/edit`)}
             >
               Edit Profile
             </Button>
@@ -216,19 +216,19 @@ export default function FounderPage({ params }: FounderPageProps) {
         <div className="grid md:grid-cols-3 gap-6">
           <div className="text-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
             <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-              {founder.totalEquityAvailable}%
+              {typeof founder.totalEquityAvailable === 'number' ? founder.totalEquityAvailable.toFixed(3) : founder.totalEquityAvailable}%
             </div>
             <div className="text-sm text-gray-600 dark:text-gray-300">Total Available</div>
           </div>
           <div className="text-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
             <div className="text-2xl font-bold text-danger">
-              {founder.equitySwapped}%
+              {typeof founder.equitySwapped === 'number' ? founder.equitySwapped.toFixed(3) : founder.equitySwapped}%
             </div>
             <div className="text-sm text-gray-600 dark:text-gray-300">Already Swapped</div>
           </div>
           <div className="text-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
             <div className="text-2xl font-bold text-primary">
-              {equityRemaining}%
+              {typeof equityRemaining === 'number' ? equityRemaining.toFixed(3) : equityRemaining}%
             </div>
             <div className="text-sm text-gray-600 dark:text-gray-300">Remaining</div>
           </div>
