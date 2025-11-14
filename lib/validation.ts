@@ -71,8 +71,8 @@ export function validateFounder(founder: Partial<Founder>): ValidationError[] {
     });
   }
   
-  if (typeof founder.totalEquityAvailable !== 'number' || founder.totalEquityAvailable <= 0 || founder.totalEquityAvailable > 100) {
-    errors.push({ field: 'totalEquityAvailable', message: 'Total equity available must be between 1 and 100' });
+  if (typeof founder.totalEquityAvailable !== 'number' || founder.totalEquityAvailable < 0.001 || founder.totalEquityAvailable > 100) {
+    errors.push({ field: 'totalEquityAvailable', message: 'Total equity available must be between 0.001 and 100' });
   }
   
   return errors;
@@ -100,12 +100,12 @@ export async function validateAgreementEquity(
 ): Promise<ValidationError[]> {
   const errors: ValidationError[] = [];
   
-  if (equityFromA <= 0) {
-    errors.push({ field: 'equityFromCompanyA', message: 'Equity from Company A must be greater than 0' });
+  if (equityFromA < 0.001) {
+    errors.push({ field: 'equityFromCompanyA', message: 'Equity from Company A must be at least 0.001%' });
   }
   
-  if (equityFromB <= 0) {
-    errors.push({ field: 'equityFromCompanyB', message: 'Equity from Company B must be greater than 0' });
+  if (equityFromB < 0.001) {
+    errors.push({ field: 'equityFromCompanyB', message: 'Equity from Company B must be at least 0.001%' });
   }
   
   // Check if founders have enough equity remaining

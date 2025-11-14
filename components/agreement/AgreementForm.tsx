@@ -32,8 +32,8 @@ export function AgreementForm({ agreement, onSubmit, onCancel, isLoading = false
   // Initialize form data
   const [formData, setFormData] = useState({
     founderBId: agreement ? (agreement.founderAId === currentFounder?.id ? agreement.founderBId : agreement.founderAId) : '',
-    equityFromA: agreement ? agreement.versions[agreement.currentVersion].equityFromCompanyA : 5,
-    equityFromB: agreement ? agreement.versions[agreement.currentVersion].equityFromCompanyB : 5,
+    equityFromA: agreement ? agreement.versions[agreement.currentVersion].equityFromCompanyA : 0.1,
+    equityFromB: agreement ? agreement.versions[agreement.currentVersion].equityFromCompanyB : 0.1,
     notes: agreement ? agreement.versions[agreement.currentVersion].notes : '',
   });
   
@@ -133,7 +133,7 @@ export function AgreementForm({ agreement, onSubmit, onCancel, isLoading = false
     try {
       // Validate form
       if (!formData.founderBId) {
-        setErrors({ founderBId: 'Please select a founder to create agreement with' });
+        setErrors({ founderBId: 'Please select a founder to propose agreement with' });
         setSubmitting(false);
         return;
       }
@@ -191,7 +191,7 @@ export function AgreementForm({ agreement, onSubmit, onCancel, isLoading = false
           }
         });
       } else {
-        // Generate create agreement message
+        // Generate propose agreement message
         const otherFounder = founders.find(f => f.id === formData.founderBId);
         message = generateCreateAgreementMessage(
           equityFromThisFounder,
@@ -277,7 +277,7 @@ export function AgreementForm({ agreement, onSubmit, onCancel, isLoading = false
                 value: founder.id,
                 label: `${founder.founderName} (${founder.companyName})`
               }))}
-              placeholder="Choose a founder to create agreement with"
+              placeholder="Choose a founder to propose agreement with"
               required
             />
           )}
@@ -291,9 +291,9 @@ export function AgreementForm({ agreement, onSubmit, onCancel, isLoading = false
               <Input
                 label="Equity You Offer (%)"
                 type="number"
-                min="0.1"
+                min="0.001"
                 max="100"
-                step="0.1"
+                step="0.001"
                 value={currentFounderEquity}
                 onChange={(e) => {
                   const value = parseFloat(e.target.value) || 0;
@@ -304,7 +304,7 @@ export function AgreementForm({ agreement, onSubmit, onCancel, isLoading = false
                   }
                 }}
                 error={errors.equityFromCompanyA || errors.equityFromCompanyB}
-                helperText={`Available: ${currentFounder.totalEquityAvailable - currentFounder.equitySwapped}%`}
+                helperText={`Available: ${(currentFounder.totalEquityAvailable - currentFounder.equitySwapped).toFixed(3)}%`}
                 required
               />
             </div>
@@ -316,9 +316,9 @@ export function AgreementForm({ agreement, onSubmit, onCancel, isLoading = false
               <Input
                 label="Equity You Request (%)"
                 type="number"
-                min="0.1"
+                min="0.001"
                 max="100"
-                step="0.1"
+                step="0.001"
                 value={otherFounderEquity}
                 onChange={(e) => {
                   const value = parseFloat(e.target.value) || 0;
@@ -329,7 +329,7 @@ export function AgreementForm({ agreement, onSubmit, onCancel, isLoading = false
                   }
                 }}
                 error={errors.equityFromCompanyB || errors.equityFromCompanyA}
-                helperText={selectedFounder ? `Available: ${selectedFounder.totalEquityAvailable - selectedFounder.equitySwapped}%` : ''}
+                helperText={selectedFounder ? `Available: ${(selectedFounder.totalEquityAvailable - selectedFounder.equitySwapped).toFixed(3)}%` : ''}
                 required
               />
             </div>
@@ -362,7 +362,7 @@ export function AgreementForm({ agreement, onSubmit, onCancel, isLoading = false
               disabled={isSigning}
               className="sm:min-w-[140px]"
             >
-              {isSigning ? 'Signing Message...' : (agreement ? 'Propose Revision' : 'Create Agreement')}
+              {isSigning ? 'Signing Message...' : (agreement ? 'Propose Revision' : 'Propose Agreement')}
             </Button>
           </div>
         </form>
