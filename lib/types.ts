@@ -61,6 +61,17 @@ export interface Agreement {
   versions: AgreementVersion[];
   createdAt: string;
   updatedAt: string;
+  // VC-related fields (optional for backward compatibility)
+  partyAAddress?: string;
+  partyBAddress?: string;
+  equityAtoB?: number;
+  equityBtoA?: number;
+  canonicalTermsJson?: string;
+  termsHash?: string;
+  sigA?: string;
+  sigB?: string;
+  finalizedAt?: string;
+  vcJwt?: string;
 }
 
 // Graph visualization

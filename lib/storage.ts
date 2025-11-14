@@ -217,6 +217,17 @@ class AgreementStorage {
         versions: agreement.versions,
         created_at: agreement.createdAt,
         updated_at: agreement.updatedAt,
+        // VC-related fields
+        party_a_address: (agreement as any).partyAAddress || null,
+        party_b_address: (agreement as any).partyBAddress || null,
+        equity_a_to_b: (agreement as any).equityAtoB !== undefined ? (agreement as any).equityAtoB : null,
+        equity_b_to_a: (agreement as any).equityBtoA !== undefined ? (agreement as any).equityBtoA : null,
+        canonical_terms_json: (agreement as any).canonicalTermsJson || null,
+        terms_hash: (agreement as any).termsHash || null,
+        sig_a: (agreement as any).sigA || null,
+        sig_b: (agreement as any).sigB || null,
+        finalized_at: (agreement as any).finalizedAt || null,
+        vc_jwt: (agreement as any).vcJwt || null,
       })
       .select()
       .single();
@@ -280,6 +291,17 @@ class AgreementStorage {
       versions: row.versions,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
+      // VC-related fields
+      partyAAddress: row.party_a_address || undefined,
+      partyBAddress: row.party_b_address || undefined,
+      equityAtoB: row.equity_a_to_b !== null && row.equity_a_to_b !== undefined ? Number(row.equity_a_to_b) : undefined,
+      equityBtoA: row.equity_b_to_a !== null && row.equity_b_to_a !== undefined ? Number(row.equity_b_to_a) : undefined,
+      canonicalTermsJson: row.canonical_terms_json || undefined,
+      termsHash: row.terms_hash || undefined,
+      sigA: row.sig_a || undefined,
+      sigB: row.sig_b || undefined,
+      finalizedAt: row.finalized_at || undefined,
+      vcJwt: row.vc_jwt || undefined,
     };
   }
 }
