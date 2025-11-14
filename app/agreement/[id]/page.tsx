@@ -2,10 +2,10 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAccount, useSignMessage } from 'wagmi';
+import { useAccount, useSignTypedData } from 'wagmi';
 import { useAppStore } from '@/lib/store';
 import { agreementStorage } from '@/lib/storage';
-import { approveAgreement, canApproveAgreement, canReviseAgreement, completeAgreement, generateApprovalMessage } from '@/lib/agreements';
+import { canApproveAgreement, canReviseAgreement, completeAgreement } from '@/lib/agreements';
 import { exportAgreement } from '@/lib/export';
 import { toast } from '@/lib/toastStore';
 import { Agreement } from '@/lib/types';
@@ -24,13 +24,16 @@ interface AgreementPageProps {
 export default function AgreementPage({ params }: AgreementPageProps) {
   const router = useRouter();
   const { address } = useAccount();
-  const { signMessage, data: signatureData, isPending: isSigning, error: signError } = useSignMessage();
+  const { signTypedData, data: signatureData, isPending: isSigning, error: signError } = useSignTypedData();
   const { session, currentFounder, founders, agreements, updateAgreement, refreshData } = useAppStore();
   const [agreement, setAgreement] = useState<Agreement | null>(null);
   const [loading, setLoading] = useState(true);
   const [showRevisionModal, setShowRevisionModal] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [pendingApprovalMessage, setPendingApprovalMessage] = useState<string | null>(null);
+  const [vcJwt, setVcJwt] = useState<string | null>(null);
+  const [vcPayload, setVcPayload] = useState<any | null>(null);
+  const [loadingVc, setLoadingVc] = useState(false);
   
   useEffect(() => {
     if (!session) {
@@ -59,26 +62,43 @@ export default function AgreementPage({ params }: AgreementPageProps) {
 
   // Handle signature completion
   useEffect(() => {
-    if (signatureData && pendingApprovalMessage && agreement && currentFounder) {
+    if (signatureData && pendingApprovalMessage && agreement && currentFounder && address) {
       const processApproval = async () => {
         try {
-          const result = await approveAgreement(agreement.id, currentFounder.id, signatureData);
-          if (result.success && result.agreement) {
-            updateAgreement(result.agreement);
+          // Send signature to backend
+          const response = await fetch(`/api/agreements/${agreement.id}/sign`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Wallet-Address': address.toLowerCase(),
+            },
+            body: JSON.stringify({
+              signature: signatureData,
+            }),
+          });
+          
+          const data = await response.json();
+          
+          if (!response.ok) {
+            throw new Error(data.error || 'Failed to sign agreement');
+          }
+          
+          // Reload agreement to get updated state
+          const updatedAgreement = await agreementStorage.findById(agreement.id);
+          if (updatedAgreement) {
+            updateAgreement(updatedAgreement);
             refreshData(); // Refresh to update equity counts
-            setAgreement(result.agreement);
+            setAgreement(updatedAgreement);
             
-            if (result.agreement.status === 'approved') {
-              toast.success('Agreement Approved!', 'Both founders have signed and approved this agreement. It can now be marked as completed.');
+            if (data.isFinalized) {
+              toast.success('Agreement Finalized!', 'Both founders have signed. A Verifiable Credential has been issued.');
             } else {
-              toast.success('Approval Recorded', 'Your signature and approval have been recorded. Waiting for the other founder to sign and approve.');
+              toast.success('Signature Recorded', 'Your signature has been recorded. Waiting for the other founder to sign.');
             }
-          } else {
-            toast.error('Approval Failed', result.error || 'Failed to approve agreement');
           }
         } catch (error: any) {
           console.error('Approval error:', error);
-          toast.error('Error', error?.message || 'An unexpected error occurred while approving the agreement');
+          toast.error('Error', error?.message || 'An unexpected error occurred while signing the agreement');
         } finally {
           setActionLoading(null);
           setPendingApprovalMessage(null);
@@ -87,7 +107,7 @@ export default function AgreementPage({ params }: AgreementPageProps) {
       
       processApproval();
     }
-  }, [signatureData, pendingApprovalMessage, agreement, currentFounder, updateAgreement, refreshData]);
+  }, [signatureData, pendingApprovalMessage, agreement, currentFounder, address, updateAgreement, refreshData]);
 
   // Handle signature rejection/error
   useEffect(() => {
@@ -144,36 +164,37 @@ export default function AgreementPage({ params }: AgreementPageProps) {
     setActionLoading('approve');
     
     try {
-      const currentVersion = agreement.versions[agreement.currentVersion];
-      if (!currentVersion) {
-        toast.error('Error', 'Invalid agreement version');
-        setActionLoading(null);
-        return;
+      // Fetch EIP-712 data from backend
+      // Pass wallet address in header for authentication
+      const response = await fetch(`/api/agreements/${agreement.id}/eip712`, {
+        headers: {
+          'X-Wallet-Address': address.toLowerCase(),
+        },
+      });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(errorData.error || `Failed to fetch signing data (${response.status})`);
       }
+      
+      const eip712Data = await response.json();
+      
+      // Store agreement ID for when signature completes
+      setPendingApprovalMessage(agreement.id);
 
-      // Determine which equity amount this founder is offering
-      const equityFromThisFounder = agreement.founderAId === currentFounder.id 
-        ? currentVersion.equityFromCompanyA 
-        : currentVersion.equityFromCompanyB;
-      const equityFromOther = agreement.founderAId === currentFounder.id 
-        ? currentVersion.equityFromCompanyB 
-        : currentVersion.equityFromCompanyA;
+      // Convert string values back to BigInt for signing
+      const message = {
+        ...eip712Data.message,
+        equityAtoB: BigInt(eip712Data.message.equityAtoB),
+        equityBtoA: BigInt(eip712Data.message.equityBtoA),
+      };
 
-      // Generate message to sign (use display number for better UX)
-      const agreementDisplayNumber = getAgreementDisplayNumber(agreement, agreements);
-      const message = generateApprovalMessage(
-        agreementDisplayNumber,
-        agreement.currentVersion,
-        equityFromThisFounder,
-        equityFromOther,
-        currentFounder.founderName
-      );
-
-      // Store message for when signature completes
-      setPendingApprovalMessage(message);
-
-      // Prompt user to sign message
-      signMessage({ message });
+      // Prompt user to sign typed data
+      signTypedData({
+        domain: eip712Data.domain,
+        types: eip712Data.types,
+        primaryType: eip712Data.primaryType,
+        message,
+      });
     } catch (error: any) {
       console.error('Approval error:', error);
       toast.error('Error', error?.message || 'An unexpected error occurred while approving the agreement');
@@ -214,6 +235,74 @@ export default function AgreementPage({ params }: AgreementPageProps) {
     } finally {
       setActionLoading(null);
     }
+  };
+  
+  const handleFetchCredential = async () => {
+    if (!agreement || !address) return;
+    
+    setLoadingVc(true);
+    try {
+      const response = await fetch(`/api/agreements/${agreement.id}/credential`, {
+        headers: {
+          'X-Wallet-Address': address.toLowerCase(),
+        },
+      });
+      if (!response.ok) {
+        const data = await response.json();
+        const errorMsg = data.error || 'Failed to fetch credential';
+        const details = data.details ? `\n\nDetails: ${data.details}` : '';
+        throw new Error(errorMsg + details);
+      }
+      
+      const data = await response.json();
+      setVcJwt(data.vcJwt);
+      setVcPayload(data.payload);
+      
+      // Automatically copy JWT to clipboard
+      if (data.vcJwt) {
+        try {
+          await navigator.clipboard.writeText(data.vcJwt);
+          toast.success('Credential Copied!', 'Verifiable Credential has been copied to your clipboard.');
+        } catch (clipboardError) {
+          // If clipboard copy fails, still show success but mention manual copy
+          toast.success('Credential Retrieved', 'Verifiable Credential has been loaded. Click "Copy" to copy it to clipboard.');
+        }
+      }
+    } catch (error: any) {
+      toast.error('Error', error?.message || 'Failed to fetch credential');
+    } finally {
+      setLoadingVc(false);
+    }
+  };
+  
+  const handleCopyJwt = () => {
+    if (vcJwt) {
+      navigator.clipboard.writeText(vcJwt);
+      toast.success('Copied!', 'JWT has been copied to clipboard');
+    }
+  };
+  
+  const handleDownloadCredential = () => {
+    if (!vcJwt || !vcPayload) return;
+    
+    const credentialData = {
+      jwt: vcJwt,
+      payload: vcPayload,
+      agreementId: agreement.id,
+      downloadedAt: new Date().toISOString(),
+    };
+    
+    const blob = new Blob([JSON.stringify(credentialData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `verifiable-credential-${agreement.id}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    toast.success('Downloaded!', 'Verifiable Credential has been saved to your downloads folder.');
   };
   
   const handleRevisionSubmitted = (updatedAgreement: Agreement) => {
@@ -376,13 +465,24 @@ export default function AgreementPage({ params }: AgreementPageProps) {
             Back to Agreements
           </Button>
           
-          {agreement.status === 'completed' && isInvolved && (
-            <Button 
-              onClick={handleExport}
-              loading={actionLoading === 'export'}
-            >
-              Export for signet
-            </Button>
+          {(agreement.finalizedAt || agreement.status === 'completed') && isInvolved && (
+            <>
+              <Button 
+                onClick={handleFetchCredential}
+                loading={loadingVc}
+                variant="secondary"
+              >
+                {vcJwt ? 'Refresh Credential' : 'Get Verifiable Credential'}
+              </Button>
+              {agreement.status === 'completed' && (
+                <Button 
+                  onClick={handleExport}
+                  loading={actionLoading === 'export'}
+                >
+                  Export for signet
+                </Button>
+              )}
+            </>
           )}
           
           {agreement.status === 'approved' && isInvolved && (
@@ -421,6 +521,64 @@ export default function AgreementPage({ params }: AgreementPageProps) {
           )}
         </div>
       </Card>
+      
+      {/* Verifiable Credential Display */}
+      {vcJwt && (
+        <Card>
+          <div className="space-y-4">
+            <h2 className="font-semibold text-xl text-gray-900 dark:text-gray-100">
+              Verifiable Credential
+            </h2>
+            
+            {vcPayload && (
+              <div className="space-y-2">
+                <div className="text-sm text-gray-500 dark:text-gray-400">Issuer</div>
+                <div className="text-gray-900 dark:text-gray-100 font-mono text-xs break-all">
+                  {vcPayload.iss}
+                </div>
+              </div>
+            )}
+            
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <div className="text-sm text-gray-500 dark:text-gray-400">JWT</div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleCopyJwt}
+                  >
+                    Copy
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleDownloadCredential}
+                  >
+                    Download
+                  </Button>
+                </div>
+              </div>
+              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <p className="text-gray-900 dark:text-gray-100 font-mono text-xs break-all">
+                  {vcJwt}
+                </p>
+              </div>
+            </div>
+            
+            {vcPayload?.vc?.credentialSubject && (
+              <div className="space-y-2">
+                <div className="text-sm text-gray-500 dark:text-gray-400">Credential Subject</div>
+                <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <pre className="text-xs text-gray-900 dark:text-gray-100 overflow-auto">
+                    {JSON.stringify(vcPayload.vc.credentialSubject, null, 2)}
+                  </pre>
+                </div>
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
       
       {/* Revision Modal */}
       <Modal
