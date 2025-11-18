@@ -138,6 +138,13 @@ export function AgreementForm({ agreement, onSubmit, onCancel, isLoading = false
         return;
       }
       
+      // Validate notes are provided
+      if (!formData.notes || !formData.notes.trim()) {
+        setErrors({ notes: 'Agreement notes are required. Please explain the strategic rationale, key terms, risks, and benefits.' });
+        setSubmitting(false);
+        return;
+      }
+      
       // Validate equity amounts
       const validationErrors = await validateAgreementEquity(
         currentFounder.id,
@@ -341,9 +348,10 @@ export function AgreementForm({ agreement, onSubmit, onCancel, isLoading = false
             value={formData.notes}
             onChange={(e) => handleInputChange('notes', e.target.value)}
             error={errors.notes}
-            placeholder="Describe the motivation, terms, or any additional details for this equity swap..."
+            placeholder="What considerations led to the proposed ratio for this agreement?"
             rows={4}
-            helperText="Optional but recommended to explain the strategic rationale"
+            helperText="Required. Explain the rationale, key terms, risks, and benefits for this equity swap."
+            required
           />
           
           {/* Form Actions */}
