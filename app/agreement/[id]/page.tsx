@@ -436,11 +436,14 @@ export default function AgreementPage({ params }: AgreementPageProps) {
                   </div>
                 </div>
                 
-                {version.notes && (
-                  <div className="mt-2 text-sm text-gray-600 dark:text-gray-300">
-                    {version.notes}
+                <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                  <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                    Notes & Rationale:
                   </div>
-                )}
+                  <div className="text-sm text-gray-900 dark:text-gray-100 whitespace-pre-wrap">
+                    {version.notes || '(No notes provided)'}
+                  </div>
+                </div>
                 
                 <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
                   Proposed by: {founders.find(f => f.id === version.proposedBy)?.founderName || 'Unknown'} • 

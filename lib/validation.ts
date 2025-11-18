@@ -169,6 +169,11 @@ export function validateAgreement(agreement: Partial<Agreement>): ValidationErro
     return errors;
   }
   
+  // Validate notes are provided
+  if (!currentVersion.notes || !currentVersion.notes.trim()) {
+    errors.push({ field: 'notes', message: 'Agreement notes are required. Please explain the strategic rationale, key terms, risks, and benefits.' });
+  }
+  
   // Note: validateAgreementEquity is async, but validateAgreement is synchronous
   // For now, we'll skip async validation in this function
   // Callers should use validateAgreementEquity directly if async validation is needed

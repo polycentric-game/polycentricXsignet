@@ -12,6 +12,11 @@ export async function createAgreement(
   initiatedBy: string,
   signature: string
 ): Promise<{ success: boolean; agreement?: Agreement; error?: string }> {
+  // Validate notes are provided
+  if (!notes || !notes.trim()) {
+    return { success: false, error: 'Agreement notes are required. Please explain the strategic rationale, key terms, risks, and benefits.' };
+  }
+  
   // Validate equity amounts
   const validationErrors = await validateAgreementEquity(founderAId, founderBId, equityFromA, equityFromB);
   if (validationErrors.length > 0) {
@@ -66,6 +71,11 @@ export async function proposeRevision(
   proposedBy: string,
   signature: string
 ): Promise<{ success: boolean; agreement?: Agreement; error?: string }> {
+  // Validate notes are provided
+  if (!notes || !notes.trim()) {
+    return { success: false, error: 'Agreement notes are required for revisions. Please explain the strategic rationale, key terms, risks, and benefits.' };
+  }
+  
   const agreement = await agreementStorage.findById(agreementId);
   if (!agreement) {
     return { success: false, error: 'Agreement not found' };
