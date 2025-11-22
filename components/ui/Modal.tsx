@@ -50,22 +50,24 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalPr
   };
   
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-start md:items-center justify-center overflow-y-auto">
       {/* Backdrop */}
       <div 
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm"
         onClick={onClose}
       />
       
       {/* Modal */}
       <div className={cn(
-        'relative w-full mx-4 bg-white rounded-lg shadow-xl',
+        'relative w-full mx-4 my-4 md:my-8 bg-white rounded-lg shadow-xl',
         'dark:bg-gray-800',
+        'max-h-[calc(100vh-2rem)] md:max-h-[calc(100vh-4rem)]',
+        'flex flex-col',
         sizes[size]
       )}>
-        {/* Header */}
+        {/* Header - Fixed */}
         {title && (
-          <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between p-4 md:p-6 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
               {title}
             </h2>
@@ -80,8 +82,8 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalPr
           </div>
         )}
         
-        {/* Content */}
-        <div className="p-6">
+        {/* Content - Scrollable */}
+        <div className="p-4 md:p-6 overflow-y-auto flex-1 min-h-0">
           {children}
         </div>
       </div>

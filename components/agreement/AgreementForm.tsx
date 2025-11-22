@@ -301,9 +301,33 @@ export function AgreementForm({ agreement, onSubmit, onCancel, isLoading = false
                 min="0.001"
                 max="100"
                 step="0.001"
-                value={currentFounderEquity}
+                value={currentFounderEquity === 0 ? '' : currentFounderEquity}
                 onChange={(e) => {
-                  const value = parseFloat(e.target.value) || 0;
+                  const inputValue = e.target.value;
+                  // Allow empty string while typing
+                  if (inputValue === '' || inputValue === '-' || inputValue === '.') {
+                    // Store 0 in state when field is empty, so user can type freely
+                    if (agreement?.founderAId === currentFounder.id) {
+                      handleInputChange('equityFromA', 0);
+                    } else {
+                      handleInputChange('equityFromB', 0);
+                    }
+                    return;
+                  }
+                  const value = parseFloat(inputValue);
+                  // Only update if it's a valid number
+                  if (!isNaN(value) && isFinite(value)) {
+                    if (agreement?.founderAId === currentFounder.id) {
+                      handleInputChange('equityFromA', value);
+                    } else {
+                      handleInputChange('equityFromB', value);
+                    }
+                  }
+                }}
+                onBlur={(e) => {
+                  // Ensure we have a valid number on blur, default to 0.1 if empty
+                  const inputValue = e.target.value;
+                  const value = inputValue === '' || inputValue === '-' || inputValue === '.' ? 0.1 : parseFloat(inputValue) || 0.1;
                   if (agreement?.founderAId === currentFounder.id) {
                     handleInputChange('equityFromA', value);
                   } else {
@@ -326,9 +350,33 @@ export function AgreementForm({ agreement, onSubmit, onCancel, isLoading = false
                 min="0.001"
                 max="100"
                 step="0.001"
-                value={otherFounderEquity}
+                value={otherFounderEquity === 0 ? '' : otherFounderEquity}
                 onChange={(e) => {
-                  const value = parseFloat(e.target.value) || 0;
+                  const inputValue = e.target.value;
+                  // Allow empty string while typing
+                  if (inputValue === '' || inputValue === '-' || inputValue === '.') {
+                    // Store 0 in state when field is empty, so user can type freely
+                    if (agreement?.founderAId === currentFounder.id) {
+                      handleInputChange('equityFromB', 0);
+                    } else {
+                      handleInputChange('equityFromA', 0);
+                    }
+                    return;
+                  }
+                  const value = parseFloat(inputValue);
+                  // Only update if it's a valid number
+                  if (!isNaN(value) && isFinite(value)) {
+                    if (agreement?.founderAId === currentFounder.id) {
+                      handleInputChange('equityFromB', value);
+                    } else {
+                      handleInputChange('equityFromA', value);
+                    }
+                  }
+                }}
+                onBlur={(e) => {
+                  // Ensure we have a valid number on blur, default to 0.1 if empty
+                  const inputValue = e.target.value;
+                  const value = inputValue === '' || inputValue === '-' || inputValue === '.' ? 0.1 : parseFloat(inputValue) || 0.1;
                   if (agreement?.founderAId === currentFounder.id) {
                     handleInputChange('equityFromB', value);
                   } else {
@@ -350,7 +398,7 @@ export function AgreementForm({ agreement, onSubmit, onCancel, isLoading = false
             error={errors.notes}
             placeholder="What considerations led to the proposed ratio for this agreement?"
             rows={4}
-            helperText="Required. Explain the rationale, key terms, risks, and benefits for this equity swap."
+            helperText="Required. Explain the arationale, key terms, risks, and benefits for this equity swap."
             required
           />
           

@@ -18,7 +18,9 @@ export function Header() {
   const { session, user, setSession, clearSession, currentFounder } = useAppStore();
   const [mounted, setMounted] = useState(false);
   const [showAccountMenu, setShowAccountMenu] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
   const accountMenuRef = useRef<HTMLDivElement>(null);
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
 
   // Ensure we're mounted (client-side only)
   useEffect(() => {
@@ -28,19 +30,35 @@ export function Header() {
   // Close account menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (accountMenuRef.current && !accountMenuRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      
+      if (accountMenuRef.current && !accountMenuRef.current.contains(target)) {
         setShowAccountMenu(false);
+      }
+      
+      // For mobile menu, only close if clicking outside the menu AND not on the toggle button
+      if (showMobileMenu && mobileMenuRef.current && !mobileMenuRef.current.contains(target)) {
+        // Check if the click was on the hamburger button or its parent
+        const hamburgerButton = document.querySelector('[aria-label="Toggle menu"]');
+        if (hamburgerButton && !hamburgerButton.contains(target)) {
+          setShowMobileMenu(false);
+        }
       }
     };
 
-    if (showAccountMenu) {
+    if (showAccountMenu || showMobileMenu) {
       document.addEventListener('mousedown', handleClickOutside);
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [showAccountMenu]);
+  }, [showAccountMenu, showMobileMenu]);
+  
+  // Close mobile menu on route change
+  useEffect(() => {
+    setShowMobileMenu(false);
+  }, [pathname]);
 
   // Handle wallet connection/disconnection
   useEffect(() => {
@@ -131,8 +149,19 @@ export function Header() {
     router.push('/');
   };
 
+  const handleMobileMenuToggle = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowMobileMenu(!showMobileMenu);
+  };
+
+  const handleMobileMenuClose = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowMobileMenu(false);
+  };
+
   return (
     <header className="sticky top-0 z-40 w-full border-b border-gray-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 dark:border-gray-700 dark:bg-gray-900/95 dark:supports-[backdrop-filter]:bg-gray-900/60">
+      {/* Primary Top Bar */}
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
         <Link 
           href="/" 
@@ -145,7 +174,19 @@ export function Header() {
         </Link>
         
         <div className="flex items-center space-x-4">
+          {/* Desktop Navigation */}
           <MainNav />
+          
+          {/* Mobile Network Link */}
+          {session && user && (
+            <Link
+              href="/game"
+              className="md:hidden text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-primary transition-colors"
+            >
+              Network
+            </Link>
+          )}
+          
           <div className="flex items-center space-x-2">
             <ConnectButton.Custom>
               {({
@@ -194,7 +235,7 @@ export function Header() {
                           <button
                             onClick={openChainModal}
                             type="button"
-                            className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                            className="hidden md:flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                           >
                             {chain.hasIcon && (
                               <div
@@ -223,14 +264,21 @@ export function Header() {
                             <button
                               onClick={() => setShowAccountMenu(!showAccountMenu)}
                               type="button"
-                              className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                              className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm"
                             >
-                              {account.displayName}
-                              {currentFounder 
-                                ? ` (${currentFounder.founderName.split(' ')[0]})` 
-                                : account.displayBalance
-                                  ? ` (${account.displayBalance})`
-                                  : ''}
+                              <span className="hidden md:inline">
+                                {account.displayName}
+                                {currentFounder 
+                                  ? ` (${currentFounder.founderName.split(' ')[0]})` 
+                                  : account.displayBalance
+                                    ? ` (${account.displayBalance})`
+                                    : ''}
+                              </span>
+                              <span className="md:hidden">
+                                {currentFounder 
+                                  ? currentFounder.founderName.split(' ')[0]
+                                  : account.displayName.split(' ')[0]}
+                              </span>
                               <svg
                                 className={`w-4 h-4 transition-transform ${showAccountMenu ? 'rotate-180' : ''}`}
                                 fill="none"
@@ -287,6 +335,70 @@ export function Header() {
           <ThemeToggle />
         </div>
       </div>
+      
+      {/* Secondary Bar - Mobile Navigation */}
+      {session && user && (
+        <div className="md:hidden border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 relative">
+          <div className="container mx-auto flex items-center px-4 h-12">
+            <button
+              onClick={handleMobileMenuToggle}
+              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              aria-label="Toggle menu"
+              type="button"
+            >
+              <svg
+                className="w-6 h-6 text-gray-900 dark:text-gray-100"
+                fill="none"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                {showMobileMenu ? (
+                  <path d="M6 18L18 6M6 6l12 12" />
+                ) : (
+                  <path d="M4 6h16M4 12h16M4 18h16" />
+                )}
+              </svg>
+            </button>
+          </div>
+          
+          {/* Mobile Menu Dropdown */}
+          {showMobileMenu && (
+            <div
+              ref={mobileMenuRef}
+              className="absolute left-0 right-0 top-full border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg z-50"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="container mx-auto px-4 py-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Navigation</h3>
+                  <button
+                    onClick={handleMobileMenuClose}
+                    type="button"
+                    className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    aria-label="Close menu"
+                  >
+                    <svg
+                      className="w-5 h-5 text-gray-900 dark:text-gray-100"
+                      fill="none"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                <MainNav isMobile onLinkClick={handleMobileMenuClose} />
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </header>
   );
 }
