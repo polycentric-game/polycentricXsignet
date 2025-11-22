@@ -171,13 +171,40 @@ export async function POST(
         const founderB = await founderStorage.findById(agreement.founderBId);
         
         if (founderA && founderB) {
-          founderA.equitySwapped += currentVersion.equityFromCompanyA;
-          founderB.equitySwapped += currentVersion.equityFromCompanyB;
+          // Ensure equity values are numbers (handle decimals)
+          const equityAValue = typeof currentVersion.equityFromCompanyA === 'number' 
+            ? currentVersion.equityFromCompanyA 
+            : parseFloat(String(currentVersion.equityFromCompanyA)) || 0;
+          const equityBValue = typeof currentVersion.equityFromCompanyB === 'number'
+            ? currentVersion.equityFromCompanyB
+            : parseFloat(String(currentVersion.equityFromCompanyB)) || 0;
+          
+          // Ensure equitySwapped is a number (in case it's still integer from old data)
+          const currentSwappedA = typeof founderA.equitySwapped === 'number' 
+            ? founderA.equitySwapped 
+            : parseFloat(String(founderA.equitySwapped)) || 0;
+          const currentSwappedB = typeof founderB.equitySwapped === 'number'
+            ? founderB.equitySwapped
+            : parseFloat(String(founderB.equitySwapped)) || 0;
+          
+          // Add equity values (ensuring they're numbers)
+          founderA.equitySwapped = currentSwappedA + equityAValue;
+          founderB.equitySwapped = currentSwappedB + equityBValue;
+          
           founderA.updatedAt = new Date().toISOString();
           founderB.updatedAt = new Date().toISOString();
           
-          await founderStorage.save(founderA);
-          await founderStorage.save(founderB);
+          try {
+            await founderStorage.save(founderA);
+            await founderStorage.save(founderB);
+          } catch (saveError: any) {
+            // Check if error is related to integer/decimal mismatch
+            if (saveError.message && saveError.message.includes('invalid input syntax for type integer')) {
+              console.error('Database schema error: equity columns are still INTEGER. Please run migration 003_change_equity_to_decimal.sql');
+              throw new Error('Database migration required: Please run the migration to change equity fields from INTEGER to NUMERIC. The migration file is: supabase/migrations/003_change_equity_to_decimal.sql');
+            }
+            throw saveError;
+          }
         }
       }
     }
