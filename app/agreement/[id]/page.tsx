@@ -182,11 +182,92 @@ export default function AgreementPage({ params }: AgreementPageProps) {
       setPendingApprovalMessage(agreement.id);
 
       // Convert string values back to BigInt for signing
+      // The API returns these as strings (from BigInt.toString())
+      let equityAtoB: bigint;
+      let equityBtoA: bigint;
+      
+      try {
+        // Handle both string and number types, ensure we have valid integers
+        const equityAtoBValue = eip712Data.message.equityAtoB;
+        const equityBtoAValue = eip712Data.message.equityBtoA;
+        
+        // Convert to string and validate
+        let equityAtoBStr = String(equityAtoBValue ?? '0').trim();
+        let equityBtoAStr = String(equityBtoAValue ?? '0').trim();
+        
+        // Remove any non-numeric characters (except minus at start, but equity can't be negative)
+        equityAtoBStr = equityAtoBStr.replace(/[^\d]/g, '');
+        equityBtoAStr = equityBtoAStr.replace(/[^\d]/g, '');
+        
+        // Ensure we have valid non-empty strings
+        if (!equityAtoBStr || equityAtoBStr === '') {
+          equityAtoBStr = '0';
+        }
+        if (!equityBtoAStr || equityBtoAStr === '') {
+          equityBtoAStr = '0';
+        }
+        
+        // Validate that the strings are valid integers
+        if (!/^\d+$/.test(equityAtoBStr) || !/^\d+$/.test(equityBtoAStr)) {
+          console.error('Invalid equity values received:', {
+            equityAtoB: equityAtoBValue,
+            equityBtoA: equityBtoAValue,
+            equityAtoBStr,
+            equityBtoAStr,
+            typeAtoB: typeof equityAtoBValue,
+            typeBtoA: typeof equityBtoAValue,
+            fullMessage: eip712Data.message,
+          });
+          throw new Error(`Invalid equity values: expected integers, got "${equityAtoBStr}" and "${equityBtoAStr}"`);
+        }
+        
+        // Convert to BigInt - this should never fail if validation passed
+        try {
+          equityAtoB = BigInt(equityAtoBStr);
+          equityBtoA = BigInt(equityBtoAStr);
+        } catch (bigIntError: any) {
+          console.error('BigInt conversion failed:', {
+            equityAtoBStr,
+            equityBtoAStr,
+            error: bigIntError,
+          });
+          throw new Error(`Failed to create BigInt from values: ${bigIntError.message}`);
+        }
+      } catch (conversionError: any) {
+        console.error('Error converting equity values to BigInt:', conversionError);
+        console.error('EIP-712 data received:', JSON.stringify(eip712Data, null, 2));
+        throw new Error(`Failed to convert equity values for signing: ${conversionError.message}`);
+      }
+      
+      // Construct message with proper types for wagmi
       const message = {
-        ...eip712Data.message,
-        equityAtoB: BigInt(eip712Data.message.equityAtoB),
-        equityBtoA: BigInt(eip712Data.message.equityBtoA),
+        agreementId: eip712Data.message.agreementId,
+        partyA: eip712Data.message.partyA,
+        partyB: eip712Data.message.partyB,
+        equityAtoB,
+        equityBtoA,
+        termsHash: eip712Data.message.termsHash,
       };
+
+      // Validate message structure before signing
+      if (!message.agreementId || !message.partyA || !message.partyB || !message.termsHash) {
+        console.error('Invalid message structure:', message);
+        throw new Error('Invalid EIP-712 message structure: missing required fields');
+      }
+
+      // Log message for debugging (in development)
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Signing EIP-712 message:', {
+          domain: eip712Data.domain,
+          types: eip712Data.types,
+          primaryType: eip712Data.primaryType,
+          message: {
+            ...message,
+            equityAtoB: message.equityAtoB.toString(),
+            equityBtoA: message.equityBtoA.toString(),
+          },
+        });
+      }
 
       // Prompt user to sign typed data
       signTypedData({
